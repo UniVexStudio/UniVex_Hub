@@ -109,8 +109,10 @@ TEST_F(HubSetupUVETest, InstallsUpgradesRegistersAndUninstalls) {
 
     const HubSetupResultUVE upgraded = InstallHubUVE(root / "v2.tar.gz", install, root / "setup-program");
     ASSERT_TRUE(upgraded.succeeded) << upgraded.message;
-    std::ifstream hub(HubExecutableInUVE(install));
-    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(hub), std::istreambuf_iterator<char>()), "hub v2");
+    {
+        std::ifstream hub(HubExecutableInUVE(install));
+        EXPECT_EQ(std::string(std::istreambuf_iterator<char>(hub), std::istreambuf_iterator<char>()), "hub v2");
+    }
     std::size_t siblings = 0U;
     for ([[maybe_unused]] const auto& entry : std::filesystem::directory_iterator(install.parent_path())) {
         ++siblings;
@@ -138,7 +140,8 @@ TEST_F(HubSetupUVETest, InstallsUpgradesRegistersAndUninstalls) {
     EXPECT_EQ(countFiles(), 1U);
 #endif
 
-    ASSERT_TRUE(UninstallHubUVE(install, entries).succeeded);
+    const HubSetupResultUVE uninstalled = UninstallHubUVE(install, entries);
+    ASSERT_TRUE(uninstalled.succeeded) << uninstalled.message;
     EXPECT_FALSE(std::filesystem::exists(install));
     EXPECT_EQ(countFiles(), 0U);
 }
