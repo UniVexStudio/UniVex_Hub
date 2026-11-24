@@ -291,7 +291,7 @@ public:
     void setTextInputActive(const bool active) override {
         m_textInput = active;
 #if defined(__ANDROID__)
-        Window::SetAndroidGlfwTextInput(active);   // the app shows or hides the soft keyboard
+        UVE::Window::SetAndroidGlfwTextInput(active);   // the app shows or hides the soft keyboard
 #endif
     }
     float dpiScale() const override { return m_host.m_main != nullptr ? m_host.m_main->uiScale : 1.0F; }
@@ -1428,7 +1428,7 @@ EditorViewportInput EditorHost::CaptureViewInput(const int id, const prism::Rect
     input.ctrl = (w.mods & prism::ModCtrl) != 0;
     input.alt = (w.mods & prism::ModAlt) != 0;
 #if defined(__ANDROID__)
-    input.touchNavigation = m_singleSurface && !Window::AndroidGlfwHasHardwareInput();
+    input.touchNavigation = m_singleSurface && !UVE::Window::AndroidGlfwHasHardwareInput();
 #else
     input.touchNavigation = m_singleSurface;
 #endif
