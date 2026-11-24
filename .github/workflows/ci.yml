@@ -1,0 +1,467 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['hub-v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IS_RELEASE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || startsWith(github.ref, 'refs/tags/hub-v') }}
+  ENGINE_RELEASES_REPOSITORIES: ${{ vars.ENGINE_RELEASES_REPOSITORIES || 'UniVexStudio/UniVexReleases,UniVexStudio/UniVexReleases-Dev' }}
+
+jobs:
+  # ---------------------------------------------------------------------------------------------
+  # Hub / Linux: builds uve_hub, static single-file uve_hub_setup, C++ & contract unit tests,
+  # packages Linux setup + .deb, and smoke-tests install/launch/uninstall under Xvfb.
+  # ---------------------------------------------------------------------------------------------
+  hub-linux:
+    name: Hub / Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      hub-version: ${{ steps.version.outputs.hub-version }}
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 2G
+    steps:
+      - uses: actions/checkout@v5
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-hub-linux-${{ hashFiles('CMakeLists.txt') }}-${{ github.sha }}
+          restore-keys: ccache-hub-linux-${{ hashFiles('CMakeLists.txt') }}-
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build ccache patchelf xvfb \
+            libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev \
+            zlib1g-dev libfreetype-dev libcurl4-openssl-dev \
+            libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev
+      - name: Build Hub, static Setup, and unit tests
+        run: |
+          set -euo pipefail
+          ccache -z
+          cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build/release -j"$(nproc)"
+
+          # Build portable single-file setup executable with static GLFW + FreeType.
+          cmake -S . -B build/setup-static -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DUNIVEX_HUB_STATIC_UI=ON -DUNIVEX_HUB_BUILD_TESTS=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build/setup-static --target uve_hub_setup -j"$(nproc)"
+          cp build/setup-static/bin/uve_hub_setup build/release/bin/uve_hub_setup
+          ccache -s
+      - name: Save the compiler cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-hub-linux-${{ hashFiles('CMakeLists.txt') }}-${{ github.sha }}
+      - name: Run C++ and Python contract tests
+        run: |
+          set -euo pipefail
+          ctest --test-dir build/release --output-on-failure
+          python3 -m unittest discover -s tools -p 'test_*.py' -v
+      - name: Read the Hub version
+        id: version
+        run: echo "hub-version=$(build/release/bin/uve_hub --version)" >> "${GITHUB_OUTPUT}"
+      - name: Package the Linux installer and .deb
+        run: |
+          set -euo pipefail
+          python3 tools/make_hub_installer.py --bin build/release/bin --target linux \
+            --tag "hub-v${{ steps.version.outputs.hub-version }}" --output dist --deb
+      - name: Verify, install, launch and uninstall the Linux Hub
+        run: |
+          set -euo pipefail
+          installer=$(ls dist/UniVexHubSetup-*-linux)
+          ldd "${installer}" | tee /tmp/hub-setup-ldd.txt
+          if grep -Eq 'not found|libglfw|libGLEW|libjpeg|libfreetype' /tmp/hub-setup-ldd.txt; then
+            echo "::error::UniVexHubSetup carries non-portable shared library dependencies."
+            exit 1
+          fi
+          install_dir="${RUNNER_TEMP}/UniVexHubLinuxTest"
+          home_dir="${RUNNER_TEMP}/UniVexHubLinuxHome"
+          mkdir -p "${home_dir}"
+          HOME="${home_dir}" "${installer}" --silent --install-dir "${install_dir}"
+          ldd "${install_dir}/uve_hub" | tee /tmp/hub-installed-ldd.txt
+          if grep -q 'not found' /tmp/hub-installed-ldd.txt; then
+            echo "::error::Installed uve_hub has unresolved shared libraries."
+            exit 1
+          fi
+          HOME="${home_dir}" "${install_dir}/uve_hub" --version
+          HOME="${home_dir}" LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a "${install_dir}/uve_hub" --frames 3
+          HOME="${home_dir}" "${install_dir}/uve_hub_setup" --uninstall --silent --install-dir "${install_dir}"
+          if [ -e "${install_dir}/uve_hub" ]; then
+            echo "::error::Linux Hub uninstall left uve_hub behind."
+            exit 1
+          fi
+          deb=$(ls dist/UniVexHub-*-linux-amd64.deb)
+          dpkg-deb --info "${deb}"
+          dpkg-deb --contents "${deb}" > /tmp/hub-deb-contents.txt
+          grep -q 'usr/share/applications/univex-hub.desktop' /tmp/hub-deb-contents.txt
+          deb_root="${RUNNER_TEMP}/UniVexHubDebTest"
+          rm -rf "${deb_root}" && mkdir -p "${deb_root}"
+          dpkg-deb -x "${deb}" "${deb_root}"
+          grep -q '^Terminal=false$' "${deb_root}/usr/share/applications/univex-hub.desktop"
+          ldd "${deb_root}/opt/univex-hub/uve_hub" | tee /tmp/hub-deb-ldd.txt
+          if grep -q 'not found' /tmp/hub-deb-ldd.txt; then
+            echo "::error::Debian package uve_hub has unresolved shared libraries."
+            exit 1
+          fi
+          HOME="${home_dir}" "${deb_root}/opt/univex-hub/uve_hub" --version
+          HOME="${home_dir}" LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a "${deb_root}/opt/univex-hub/uve_hub" --frames 3
+      - name: Upload Linux release artifacts
+        if: env.IS_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hub-linux
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------------------------
+  # Hub / Windows: builds uve_hub + unit tests under MSYS2 UCRT64, compiles Inno Setup wizard,
+  # and smoke-tests silent install/launch/uninstall with a clean Windows-only PATH.
+  # ---------------------------------------------------------------------------------------------
+  hub-windows:
+    name: Hub / Windows
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-glfw
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-ccache
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-hub-windows-${{ hashFiles('CMakeLists.txt') }}-${{ github.sha }}
+          restore-keys: ccache-hub-windows-${{ hashFiles('CMakeLists.txt') }}-
+      - name: Build and test Hub
+        shell: msys2 {0}
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CCACHE_BASEDIR: ${{ github.workspace }}
+          CCACHE_COMPILERCHECK: content
+          CCACHE_MAXSIZE: 2G
+        run: |
+          set -euo pipefail
+          ccache -z
+          cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build/release --target uve_hub uve_hub_tests -j4
+          ctest --test-dir build/release --output-on-failure
+          ccache -s
+      - name: Save the compiler cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-hub-windows-${{ hashFiles('CMakeLists.txt') }}-${{ github.sha }}
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup --yes --no-progress
+            $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" | Select-Object -First 1
+          }
+          if (-not $iscc) { Write-Error "Inno Setup's ISCC.exe was not found after installing it"; exit 1 }
+          "UVE_ISCC=$($iscc.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Package the Windows installer
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          bin=build/release/bin
+          objdump -p "$bin/uve_hub.exe" > /tmp/hub-pe.txt
+          grep -q 'Subsystem.*Windows GUI' /tmp/hub-pe.txt
+          hub_version=$("$bin/uve_hub.exe" --version | tr -d '\r')
+          python tools/make_hub_installer.py --bin "$bin" --target windows --tag "hub-v${hub_version}" --output dist
+      - name: Install, start and uninstall the Windows Hub
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist\UniVexHubSetup-*-windows.exe | Select-Object -First 1
+          $target = Join-Path $env:RUNNER_TEMP "UniVexHubInstall"
+          $log = Join-Path $env:RUNNER_TEMP "UniVexHubSetup.log"
+          $setup = Start-Process -FilePath $installer.FullName -Wait -PassThru `
+            -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", "/DIR=`"$target`"", "/LOG=`"$log`""
+          if ($setup.ExitCode -ne 0) { Get-Content $log; Write-Error "setup exited with $($setup.ExitCode)"; exit 1 }
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $versionOut = Join-Path $env:RUNNER_TEMP "uve_hub_version.txt"
+          $probe = Start-Process -FilePath (Join-Path $target "uve_hub.exe") -ArgumentList "--version" `
+            -NoNewWindow -Wait -PassThru -RedirectStandardOutput $versionOut
+          $version = if (Test-Path $versionOut) { (Get-Content -Raw $versionOut).Trim() } else { "" }
+          if ($probe.ExitCode -ne 0 -or -not $version) { Write-Error "the installed Hub did not start (exit $($probe.ExitCode))"; exit 1 }
+          Write-Output "Installed Hub reports version $version"
+          $uninstaller = Get-ChildItem (Join-Path $target "unins*.exe") | Select-Object -First 1
+          $removal = Start-Process -FilePath $uninstaller.FullName -Wait -PassThru -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+          if ($removal.ExitCode -ne 0) { Write-Error "uninstall exited with $($removal.ExitCode)"; exit 1 }
+          $deadline = (Get-Date).AddSeconds(120)
+          while ((Test-Path (Join-Path $target "uve_hub.exe")) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
+          if (Test-Path (Join-Path $target "uve_hub.exe")) { Write-Error "uninstall left the Hub behind"; exit 1 }
+      - name: Upload Windows release artifacts
+        if: env.IS_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hub-windows
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------------------------
+  # Hub / Android: builds signed arm64-v8a Hub APK, verifies ELF symbol isolation, builds x86_64
+  # emulator APK, downloads latest published Android x86_64 .uvpackage, and runs end-to-end
+  # dlopen + GLES 3.0 smoke verification on an Android emulator.
+  # ---------------------------------------------------------------------------------------------
+  hub-android:
+    name: Hub / Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EMULATOR_ABI: x86_64
+      EMULATOR_API_LEVEL: 34
+      HUB_COMPILER_LAUNCHER: ccache
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 2G
+    steps:
+      - uses: actions/checkout@v5
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-hub-android-${{ hashFiles('CMakeLists.txt') }}-${{ github.sha }}
+          restore-keys: ccache-hub-android-${{ hashFiles('CMakeLists.txt') }}-
+      - name: Install Android SDK and NDK
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build ccache
+          packages=$(python3 - <<'PY'
+          import sys
+          sys.path.insert(0, "tools")
+          import build_apk
+          print(f"ndk;{build_apk.ANDROID_NDK_VERSION} build-tools;{build_apk.ANDROID_BUILD_TOOLS} platforms;{build_apk.ANDROID_PLATFORM}")
+          PY
+          )
+          (yes || true) | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" ${packages}
+      - name: Build the signed arm64-v8a Hub APK
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          TAG_RELEASE: ${{ startsWith(github.ref, 'refs/tags/hub-v') }}
+          UVE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          UVE_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          ccache -z
+          signing=()
+          if [ -n "${ANDROID_KEYSTORE}" ]; then
+            printf '%s' "${ANDROID_KEYSTORE}" | base64 --decode --ignore-garbage > "${RUNNER_TEMP}/release.keystore"
+            if check=$(keytool -list -keystore "${RUNNER_TEMP}/release.keystore" -storepass:env UVE_ANDROID_KEYSTORE_PASSWORD 2>&1); then
+              signing=(--keystore "${RUNNER_TEMP}/release.keystore")
+              echo "Signing Hub APK with permanent release keystore (alias: ${UVE_ANDROID_KEY_ALIAS})."
+            else
+              reason=$(printf '%s\n' "${check}" | grep -i 'error' | tail -n 1)
+              size=$(wc -c < "${RUNNER_TEMP}/release.keystore")
+              message="The ANDROID_KEYSTORE secret (${size} bytes decoded) could not be unlocked with ANDROID_KEYSTORE_PASSWORD: ${reason}."
+              if [ "${TAG_RELEASE}" = "true" ]; then
+                echo "::error::${message}"
+                exit 1
+              fi
+              echo "::warning::${message} Falling back to a debug key."
+            fi
+          elif [ "${TAG_RELEASE}" = "true" ]; then
+            echo "::error::Tagged Hub releases require ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD, and ANDROID_KEY_ALIAS."
+            exit 1
+          else
+            echo "::warning::ANDROID_KEYSTORE is not configured yet: signing with a debug key."
+          fi
+          python3 tools/build_apk.py --sdk "${ANDROID_HOME}" --abi arm64-v8a \
+            --build-dir build/android --build-number "${GITHUB_RUN_NUMBER:-0}" "${signing[@]}"
+          rm -f "${RUNNER_TEMP}/release.keystore"
+          ccache -s
+      - name: Build x86_64 emulator APK and fetch latest published Android engine package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 tools/build_apk.py --sdk "${ANDROID_HOME}" --abi "${EMULATOR_ABI}" \
+            --debuggable --build-dir build/android-emulator
+          pkg=$(python3 tools/fetch_engine_package.py \
+            --target "android-${EMULATOR_ABI}" \
+            --output build/android-emulator-pkg \
+            --repos "${ENGINE_RELEASES_REPOSITORIES}")
+          echo "Fetched engine package: ${pkg}"
+          echo "EMULATOR_ENGINE_PACKAGE=${pkg}" >> "${GITHUB_ENV}"
+      - name: Save the compiler cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-hub-android-${{ hashFiles('CMakeLists.txt') }}-${{ github.sha }}
+      - name: Enable KVM for the Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Smoke-test Hub and in-process Engine Editor on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          arch: ${{ env.EMULATOR_ABI }}
+          target: google_apis
+          emulator-options: -no-window -gpu swangle_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            python3 tools/smoke_hub.py --adb adb --serial emulator-5554 \
+              --apk "build/android-emulator/UniVexHub-${EMULATOR_ABI}.apk" \
+              --engine-package "${EMULATOR_ENGINE_PACKAGE}"
+      - name: Upload Android release APK
+        if: env.IS_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hub-android
+          path: build/android/UniVexHub-*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------------------------
+  # Single aggregate gate for main branch ruleset: passes only when all 3 platform jobs pass.
+  # ---------------------------------------------------------------------------------------------
+  ci-gate:
+    name: All CI Checks
+    if: always()
+    needs: [hub-linux, hub-windows, hub-android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify all Hub platform jobs succeeded
+        env:
+          RES_LINUX: ${{ needs.hub-linux.result }}
+          RES_WINDOWS: ${{ needs.hub-windows.result }}
+          RES_ANDROID: ${{ needs.hub-android.result }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for pair in \
+            "Hub / Linux:${RES_LINUX}" \
+            "Hub / Windows:${RES_WINDOWS}" \
+            "Hub / Android:${RES_ANDROID}"; do
+            name="${pair%:*}"
+            result="${pair##*:}"
+            echo "${name}: ${result}"
+            if [ "${result}" != "success" ]; then
+              echo "::error::Required CI job '${name}' did not succeed (result: ${result})."
+              failed=1
+            fi
+          done
+          exit "${failed}"
+
+  # ---------------------------------------------------------------------------------------------
+  # Publish Hub release: publishes privately to this repository by default (or HUB_RELEASES_REPOSITORY
+  # when explicitly configured).
+  # ---------------------------------------------------------------------------------------------
+  publish:
+    name: Publish Hub release
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || startsWith(github.ref, 'refs/tags/hub-v')
+    needs: [hub-linux, hub-windows, hub-android]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            tools/make_hub_installer.py
+          sparse-checkout-cone-mode: false
+      - name: Collect Hub release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "hub-*"
+          path: dist
+          merge-multiple: true
+      - name: Version-name APK and write checksum
+        env:
+          HUB_VERSION: ${{ needs.hub-linux.outputs.hub-version }}
+        run: |
+          set -euo pipefail
+          display=$(python3 -c "import sys; sys.path.insert(0, 'tools'); import make_hub_installer; print(make_hub_installer.display_version(sys.argv[1]))" "${HUB_VERSION}")
+          echo "DISPLAY_VERSION=${display}" >> "${GITHUB_ENV}"
+          for apk in dist/UniVexHub-*.apk; do
+            abi=$(basename "${apk}" .apk); abi=${abi#UniVexHub-}
+            named="dist/UniVexHub-${display}-android-${abi}.apk"
+            mv "${apk}" "${named}"
+            (cd dist && sha256sum "$(basename "${named}")" > "$(basename "${named}").sha256")
+          done
+      - name: Publish private Hub GitHub Release
+        env:
+          CUSTOM_REPO: ${{ vars.HUB_RELEASES_REPOSITORY }}
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          DEFAULT_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CUSTOM_REPO}" ] && [ "${CUSTOM_REPO}" != "${GITHUB_REPOSITORY}" ]; then
+            TARGET_REPO="${CUSTOM_REPO}"
+            export GH_TOKEN="${RELEASES_TOKEN}"
+            if [ -z "${GH_TOKEN}" ]; then
+              echo "::error::HUB_RELEASES_REPOSITORY is set to ${TARGET_REPO}, so RELEASES_TOKEN is required."
+              exit 1
+            fi
+          else
+            TARGET_REPO="${GITHUB_REPOSITORY}"
+            export GH_TOKEN="${DEFAULT_TOKEN}"
+          fi
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+          else
+            RELEASE_TAG="hub-v${DISPLAY_VERSION}-beta"
+          fi
+
+          title="UniVex Hub ${RELEASE_TAG#hub-v}"
+          echo "Publishing ${RELEASE_TAG} to ${TARGET_REPO}"
+          if gh release view "${RELEASE_TAG}" --repo "${TARGET_REPO}" > /dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" dist/* --repo "${TARGET_REPO}" --clobber
+          else
+            flags=(--repo "${TARGET_REPO}" --title "${title}" --notes "${title}")
+            case "${RELEASE_TAG}" in
+              *-beta) flags+=(--prerelease) ;;
+            esac
+            gh release create "${RELEASE_TAG}" "${flags[@]}" dist/*
+          fi
+      - name: Remove hand-over artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ids=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" --jq '.artifacts[].id')
+          for id in ${ids}; do
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}"
+          done

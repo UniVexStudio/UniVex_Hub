@@ -1,0 +1,4 @@
+// Copyright (c) 2026 UniVex Studios. All Rights Reserved.
+// Windows resources for the UniVex Hub Setup executable: the UniVex icon Explorer and the taskbar show.
+
+1 ICON "univex-logo.ico"
