@@ -1,6 +1,6 @@
 # UniVex Hub
 
-Standalone private repository for **UniVex Hub** — the desktop launcher (`uve_hub`), Linux/Windows installers (`uve_hub_setup`, `.deb`, Windows Inno Setup wizard), and Android Hub APK host (`com.univex.hub`).
+Standalone repository for **UniVex Hub** — the desktop launcher (`uve_hub`), Linux/Windows installers (`uve_hub_setup`, `.deb`, Windows Inno Setup wizard), and Android Hub APK host (`com.univex.hub`).
 
 UniVex Hub owns a trimmed C++23 PRISM UI snapshot, `.uvproject` / template management, engine feed downloads, and the Android `UniVexActivity` host with zero git submodule dependency on `UniVexStudio/UniVex_Engine`. Shared interfaces between the Hub and Engine are documented and tested under [`contracts/v1/`](contracts/v1/README.md).
 
@@ -34,7 +34,7 @@ Pass `--keystore /path/to/release.keystore` with `UVE_ANDROID_KEYSTORE_PASSWORD`
 
 ## Releases & GitHub Secrets
 
-Hub releases (`hub-v*` tags and `main` prereleases) publish privately to this repository by default using `GITHUB_TOKEN`. Configure these repository secrets under **Settings -> Secrets and variables -> Actions**:
+Hub releases (`hub-v*` tags and `main` prereleases) publish to this repository by default using `GITHUB_TOKEN`. Configure these repository secrets under **Settings -> Secrets and variables -> Actions**:
 
 - `ANDROID_KEYSTORE`: base64-encoded release `.keystore` / `.jks` file
 - `ANDROID_KEYSTORE_PASSWORD`: keystore password
@@ -42,7 +42,7 @@ Hub releases (`hub-v*` tags and `main` prereleases) publish privately to this re
 
 Optional repository variables:
 
-- `HUB_RELEASES_REPOSITORY`: override release target repository (defaults to this private repository; requires `RELEASES_TOKEN` secret with `Contents: write` if pointing to another repository)
+- `HUB_RELEASES_REPOSITORY`: override release target repository (defaults to this repository; requires `RELEASES_TOKEN` secret with `Contents: write` if pointing to another repository)
 - `ENGINE_RELEASES_REPOSITORIES`: comma-separated repositories scanned by Android CI smoke tests for the latest `android-x86_64.uvpackage` (default: `UniVexStudio/UniVexReleases,UniVexStudio/UniVexReleases-Dev`)
 
 ## License
