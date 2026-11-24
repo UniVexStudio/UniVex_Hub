@@ -24,26 +24,26 @@ namespace {
 int g_glfwRefCount = 0;
 bool g_suppressGlfwErrors = false;
 
-void GlfwErrorCallbackUVE(const int errorCode, const char* const description) {
+void GlfwErrorCallback(const int errorCode, const char* const description) {
     if (g_suppressGlfwErrors) {
         return;
     }
-    UVE_ERROR("HubWindowHostUVE: GLFW error {}: {}", errorCode,
+    UVE_ERROR("HubWindowHost: GLFW error {}: {}", errorCode,
               description != nullptr ? description : "(no description)");
 }
 #endif
 
 } // namespace
 
-struct HubWindowHostUVE::Impl {
-    explicit Impl(HubWindowConfigUVE cfg) : config(std::move(cfg)) {}
+struct HubWindowHost::Impl {
+    explicit Impl(HubWindowConfig cfg) : config(std::move(cfg)) {}
 
-    HubWindowConfigUVE config;
+    HubWindowConfig config;
     bool running = false;
     std::chrono::steady_clock::time_point frameStart{};
 
 #if defined(__ANDROID__)
-    std::unique_ptr<Window::AndroidWindowManagerUVE> androidWindow;
+    std::unique_ptr<Window::AndroidWindowManager> androidWindow;
 #else
     GLFWwindow* window = nullptr;
     bool ownsGlfwRef = false;
@@ -51,25 +51,25 @@ struct HubWindowHostUVE::Impl {
 #endif
 };
 
-HubWindowHostUVE::HubWindowHostUVE(HubWindowConfigUVE config)
+HubWindowHost::HubWindowHost(HubWindowConfig config)
     : m_impl(std::make_unique<Impl>(std::move(config))) {}
 
-HubWindowHostUVE::~HubWindowHostUVE() {
-    ShutdownUVE();
+HubWindowHost::~HubWindowHost() {
+    Shutdown();
 }
 
-bool HubWindowHostUVE::InitializeUVE() {
+bool HubWindowHost::Initialize() {
     if (m_impl->running) {
         return true;
     }
     if (!m_impl->config.logFile.empty()) {
-        Logging::SetLogFileUVE(m_impl->config.logFile);
+        Logging::SetLogFile(m_impl->config.logFile);
     }
 
 #if defined(__ANDROID__)
-    m_impl->androidWindow = std::make_unique<Window::AndroidWindowManagerUVE>(m_impl->config.nativeSurface, true);
-    if (!m_impl->androidWindow->IsValidUVE()) {
-        UVE_ERROR("HubWindowHostUVE: failed to initialize Android EGL/GLES3 window");
+    m_impl->androidWindow = std::make_unique<Window::AndroidWindowManager>(m_impl->config.nativeSurface, true);
+    if (!m_impl->androidWindow->IsValid()) {
+        UVE_ERROR("HubWindowHost: failed to initialize Android EGL/GLES3 window");
         m_impl->androidWindow.reset();
         return false;
     }
@@ -77,9 +77,9 @@ bool HubWindowHostUVE::InitializeUVE() {
     return true;
 #else
     if (g_glfwRefCount == 0) {
-        glfwSetErrorCallback(&GlfwErrorCallbackUVE);
+        glfwSetErrorCallback(&GlfwErrorCallback);
         if (glfwInit() != GLFW_TRUE) {
-            UVE_FATAL("HubWindowHostUVE: glfwInit() failed");
+            UVE_FATAL("HubWindowHost: glfwInit() failed");
             return false;
         }
     }
@@ -119,8 +119,8 @@ bool HubWindowHostUVE::InitializeUVE() {
     g_suppressGlfwErrors = false;
 
     if (m_impl->window == nullptr) {
-        UVE_ERROR("HubWindowHostUVE: glfwCreateWindow() failed");
-        ShutdownUVE();
+        UVE_ERROR("HubWindowHost: glfwCreateWindow() failed");
+        Shutdown();
         return false;
     }
 
@@ -138,7 +138,7 @@ bool HubWindowHostUVE::InitializeUVE() {
 #endif
 }
 
-void HubWindowHostUVE::ShutdownUVE() {
+void HubWindowHost::Shutdown() {
     m_impl->running = false;
 #if defined(__ANDROID__)
     m_impl->androidWindow.reset();
@@ -156,28 +156,28 @@ void HubWindowHostUVE::ShutdownUVE() {
         }
     }
 #endif
-    Logging::CloseLogFileUVE();
+    Logging::CloseLogFile();
 }
 
-bool HubWindowHostUVE::IsRunningUVE() const noexcept { return m_impl->running; }
+bool HubWindowHost::IsRunning() const noexcept { return m_impl->running; }
 
-bool HubWindowHostUVE::IsCloseRequestedUVE() const noexcept {
+bool HubWindowHost::IsCloseRequested() const noexcept {
 #if defined(__ANDROID__)
-    return !m_impl->androidWindow || !m_impl->androidWindow->IsValidUVE();
+    return !m_impl->androidWindow || !m_impl->androidWindow->IsValid();
 #else
     return m_impl->window == nullptr || glfwWindowShouldClose(m_impl->window) == GLFW_TRUE;
 #endif
 }
 
-void* HubWindowHostUVE::GetNativeWindowHandleUVE() const noexcept {
+void* HubWindowHost::GetNativeWindowHandle() const noexcept {
 #if defined(__ANDROID__)
-    return m_impl->androidWindow ? m_impl->androidWindow->GetNativeWindowHandleUVE() : nullptr;
+    return m_impl->androidWindow ? m_impl->androidWindow->GetNativeWindowHandle() : nullptr;
 #else
     return m_impl->window;
 #endif
 }
 
-Window::AndroidWindowManagerUVE* HubWindowHostUVE::GetAndroidWindowManagerUVE() noexcept {
+Window::AndroidWindowManager* HubWindowHost::GetAndroidWindowManager() noexcept {
 #if defined(__ANDROID__)
     return m_impl->androidWindow.get();
 #else
@@ -185,7 +185,7 @@ Window::AndroidWindowManagerUVE* HubWindowHostUVE::GetAndroidWindowManagerUVE() 
 #endif
 }
 
-void HubWindowHostUVE::BeginFrameUVE() {
+void HubWindowHost::BeginFrame() {
     m_impl->frameStart = std::chrono::steady_clock::now();
 #if !defined(__ANDROID__)
     if (m_impl->window != nullptr) {
@@ -197,10 +197,10 @@ void HubWindowHostUVE::BeginFrameUVE() {
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void HubWindowHostUVE::EndFrameUVE() {
+void HubWindowHost::EndFrame() {
 #if defined(__ANDROID__)
     if (m_impl->androidWindow) {
-        m_impl->androidWindow->SwapBuffersUVE();
+        m_impl->androidWindow->SwapBuffers();
     }
 #else
     if (m_impl->window != nullptr) {

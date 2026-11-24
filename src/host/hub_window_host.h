@@ -8,12 +8,12 @@
 #include <string>
 
 namespace UVE::Window {
-class AndroidWindowManagerUVE;
+class AndroidWindowManager;
 }
 
 namespace UVE::Host {
 
-struct HubWindowConfigUVE final {
+struct HubWindowConfig final {
     std::string title;
     std::uint32_t width = 1200U;
     std::uint32_t height = 760U;
@@ -26,26 +26,26 @@ struct HubWindowConfigUVE final {
 
 /// Minimal standalone window and OpenGL / OpenGL ES 3 surface host for UniVex Hub and Setup.
 /// Desktop builds create a borderless GLFW OpenGL Core context; Android builds wrap
-/// AndroidWindowManagerUVE over the NativeActivity ANativeWindow surface.
-class HubWindowHostUVE final {
+/// AndroidWindowManager over the NativeActivity ANativeWindow surface.
+class HubWindowHost final {
 public:
-    static constexpr int kUnhandledExceptionExitCodeUVE = 1;
+    static constexpr int kUnhandledExceptionExitCode = 1;
 
-    explicit HubWindowHostUVE(HubWindowConfigUVE config);
-    ~HubWindowHostUVE();
-    HubWindowHostUVE(const HubWindowHostUVE&) = delete;
-    HubWindowHostUVE& operator=(const HubWindowHostUVE&) = delete;
+    explicit HubWindowHost(HubWindowConfig config);
+    ~HubWindowHost();
+    HubWindowHost(const HubWindowHost&) = delete;
+    HubWindowHost& operator=(const HubWindowHost&) = delete;
 
-    [[nodiscard]] bool InitializeUVE();
-    void ShutdownUVE();
+    [[nodiscard]] bool Initialize();
+    void Shutdown();
 
-    [[nodiscard]] bool IsRunningUVE() const noexcept;
-    [[nodiscard]] bool IsCloseRequestedUVE() const noexcept;
-    [[nodiscard]] void* GetNativeWindowHandleUVE() const noexcept;
-    [[nodiscard]] Window::AndroidWindowManagerUVE* GetAndroidWindowManagerUVE() noexcept;
+    [[nodiscard]] bool IsRunning() const noexcept;
+    [[nodiscard]] bool IsCloseRequested() const noexcept;
+    [[nodiscard]] void* GetNativeWindowHandle() const noexcept;
+    [[nodiscard]] Window::AndroidWindowManager* GetAndroidWindowManager() noexcept;
 
-    void BeginFrameUVE();
-    void EndFrameUVE();
+    void BeginFrame();
+    void EndFrame();
 
 private:
     struct Impl;

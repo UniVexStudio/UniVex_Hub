@@ -70,9 +70,9 @@ def parse_version_tuple(text: str) -> tuple[int, int, int, int]:
 
 def read_hub_version() -> tuple[int, int, int, int]:
     source = HUB_VERSION_HEADER.read_text(encoding="utf-8")
-    match = re.search(r"kHubVersionUVE\s*\{\s*(\d+)U?\s*,\s*(\d+)U?\s*,\s*(\d+)U?\s*,\s*(\d+)U?\s*\}", source)
+    match = re.search(r"kHubVersion\s*\{\s*(\d+)U?\s*,\s*(\d+)U?\s*,\s*(\d+)U?\s*,\s*(\d+)U?\s*\}", source)
     if not match:
-        raise RuntimeError(f"Could not read kHubVersionUVE from {HUB_VERSION_HEADER}")
+        raise RuntimeError(f"Could not read kHubVersion from {HUB_VERSION_HEADER}")
     return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
 
 

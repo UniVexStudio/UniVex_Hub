@@ -25,7 +25,7 @@ HEADERS = (
 )
 
 CONSTANT_PATTERN = re.compile(
-    r"inline\s+constexpr\s+[\w:<>]+\s+(k\w+UVE)\s*=\s*(\"(?:[^\"\\]|\\.)*\"|\d+U?|k\w+UVE)\s*;"
+    r"inline\s+constexpr\s+[\w:<>]+\s+(k[A-Z]\w*)\s*=\s*(\"(?:[^\"\\]|\\.)*\"|\d+U?|k[A-Z]\w*)\s*;"
 )
 
 
@@ -59,23 +59,23 @@ class HubContractsTest(unittest.TestCase):
         self.assertEqual(self.cpp[name], expected, f"{name} drifted between C++ and contract/tools")
 
     def test_contract_1_engine_feed_and_package_names(self) -> None:
-        self.assert_cpp("kEngineFeedFileNameUVE", make_hub_installer.FEED_FILE)
-        self.assert_cpp("kEnginePackagePrefixUVE", "univex-engine-")
-        self.assert_cpp("kEnginePackageExtensionUVE", ".uvpackage")
-        self.assert_cpp("kEngineChecksumSuffixUVE", ".sha256")
-        self.assert_cpp("kEngineManifestFileNameUVE", "engine.json")
-        self.assert_cpp("kEngineManifestFormatUVE", "uvengine")
-        self.assert_cpp("kCurrentEngineManifestSchemaVersionUVE", 1)
+        self.assert_cpp("kEngineFeedFileName", make_hub_installer.FEED_FILE)
+        self.assert_cpp("kEnginePackagePrefix", "univex-engine-")
+        self.assert_cpp("kEnginePackageExtension", ".uvpackage")
+        self.assert_cpp("kEngineChecksumSuffix", ".sha256")
+        self.assert_cpp("kEngineManifestFileName", "engine.json")
+        self.assert_cpp("kEngineManifestFormat", "uvengine")
+        self.assert_cpp("kCurrentEngineManifestSchemaVersion", 1)
 
         feed_path = REPO_ROOT / "assets" / "engine_feed.json"
         feed = json.loads(feed_path.read_text(encoding="utf-8"))
-        self.assertEqual(feed["format"], self.cpp["kEngineFeedFormatUVE"])
-        self.assertEqual(feed["schemaVersion"], self.cpp["kCurrentEngineFeedSchemaVersionUVE"])
+        self.assertEqual(feed["format"], self.cpp["kEngineFeedFormat"])
+        self.assertEqual(feed["schemaVersion"], self.cpp["kCurrentEngineFeedSchemaVersion"])
         self.assertTrue(feed["owner"] and feed["repository"])
 
     def test_contract_2_project_templates_and_assets(self) -> None:
-        self.assert_cpp("kPrismAssetsDirectoryNameUVE", make_hub_installer.PRISM_ASSETS_DIRECTORY)
-        self.assert_cpp("kProjectTemplatesDirectoryNameUVE", make_hub_installer.PROJECT_TEMPLATES_DIRECTORY)
+        self.assert_cpp("kPrismAssetsDirectoryName", make_hub_installer.PRISM_ASSETS_DIRECTORY)
+        self.assert_cpp("kProjectTemplatesDirectoryName", make_hub_installer.PROJECT_TEMPLATES_DIRECTORY)
         self.assertTrue((REPO_ROOT / "assets" / "prism_assets").is_dir())
         self.assertTrue((REPO_ROOT / "assets" / "templates").is_dir())
         for tmpl in (REPO_ROOT / "assets" / "templates").glob("*/template.json"):
@@ -89,28 +89,29 @@ class HubContractsTest(unittest.TestCase):
         self.assertIn('"rendererProfile": "mobile"', smoke_py)
 
     def test_contract_3_installer_and_desktop_names(self) -> None:
-        self.assert_cpp("kEditorExecutableStemUVE", "uve_editor")
-        self.assert_cpp("kHubExecutableStemUVE", make_hub_installer.HUB_STEM)
-        self.assert_cpp("kSetupExecutableStemUVE", make_hub_installer.SETUP_STEM)
-        self.assert_cpp("kSetupPayloadMagicUVE", make_hub_installer.PAYLOAD_MAGIC.decode("ascii"))
-        self.assert_cpp("kHubIconsDirectoryNameUVE", make_hub_installer.ICONS_DIRECTORY)
-        self.assert_cpp("kHubWindowsIconFileNameUVE", make_hub_installer.WINDOWS_ICON_FILE)
-        self.assert_cpp("kHubDisplayNameUVE", make_hub_installer.HUB_DISPLAY_NAME)
-        self.assert_cpp("kHubDescriptionUVE", make_hub_installer.HUB_DESCRIPTION)
-        self.assert_cpp("kHubInstallFolderNameUVE", make_hub_installer.HUB_INSTALL_FOLDER)
-        self.assert_cpp("kPublisherUVE", make_hub_installer.PUBLISHER)
-        self.assert_cpp("kEditorProjectFileExtensionUVE", make_hub_installer.PROJECT_EXTENSION)
-        self.assert_cpp("kProjectProgramIdUVE", make_hub_installer.PROJECT_PROGRAM_ID)
-        self.assert_cpp("kProjectTypeDisplayNameUVE", make_hub_installer.PROJECT_TYPE_NAME)
+        self.assert_cpp("kEditorExecutableStem", "uve_editor")
+        self.assert_cpp("kHubExecutableStem", make_hub_installer.HUB_STEM)
+        self.assert_cpp("kSetupExecutableStem", make_hub_installer.SETUP_STEM)
+        self.assert_cpp("kSetupPayloadMagic", make_hub_installer.PAYLOAD_MAGIC.decode("ascii"))
+        self.assert_cpp("kHubIconsDirectoryName", make_hub_installer.ICONS_DIRECTORY)
+        self.assert_cpp("kHubWindowsIconFileName", make_hub_installer.WINDOWS_ICON_FILE)
+        self.assert_cpp("kHubDisplayName", make_hub_installer.HUB_DISPLAY_NAME)
+        self.assert_cpp("kHubDescription", make_hub_installer.HUB_DESCRIPTION)
+        self.assert_cpp("kHubInstallFolderName", make_hub_installer.HUB_INSTALL_FOLDER)
+        self.assert_cpp("kPublisher", make_hub_installer.PUBLISHER)
+        self.assert_cpp("kEditorProjectFileExtension", make_hub_installer.PROJECT_EXTENSION)
+        self.assert_cpp("kProjectProgramId", make_hub_installer.PROJECT_PROGRAM_ID)
+        self.assert_cpp("kProjectTypeDisplayName", make_hub_installer.PROJECT_TYPE_NAME)
 
         brand_pngs = make_hub_installer.BRAND_DIR / make_hub_installer.BRAND_PNG_DIRECTORY
-        self.assertTrue((brand_pngs / str(self.cpp["kHubIconFileNameUVE"])).is_file())
+        self.assertTrue((brand_pngs / str(self.cpp["kHubIconFileName"])).is_file())
 
     def test_contract_4_android_abi_and_manifest(self) -> None:
-        abi_header = (REPO_ROOT / "contracts" / "v1" / "univex_android_editor_abi.h").read_text(encoding="utf-8")
-        self.assertIn('#define UVE_ANDROID_EDITOR_ABI_VERSION 1U', abi_header)
-        self.assertIn('#define UVE_ANDROID_EDITOR_ENTRY_SYMBOL "UveEditorRunUVE"', abi_header)
-        self.assert_cpp("kEditorAndroidEntryPointUVE", "UveEditorRunUVE")
+        abi_header = (REPO_ROOT / "contracts" / "v2" / "univex_android_editor_abi.h").read_text(encoding="utf-8")
+        self.assertIn('#define UVE_ANDROID_EDITOR_ABI_VERSION 2U', abi_header)
+        self.assertIn('#define UVE_ANDROID_EDITOR_ENTRY_SYMBOL "UveEditorRun"', abi_header)
+        self.assertIn('#define UVE_ANDROID_EDITOR_ABI_VERSION_SYMBOL "UveEditorAbiVersion"', abi_header)
+        self.assert_cpp("kEditorAndroidEntryPoint", "UveEditorRun")
 
         manifest = build_apk.MANIFEST_PATH.read_text(encoding="utf-8")
         self.assertIn('package="com.univex.hub"', manifest)

@@ -26,17 +26,17 @@
 
 namespace UVE::Hub {
 
-using LauncherUI::NavItemUVE;
+using LauncherUI::NavItem;
 
-inline constexpr std::string_view kHubWindowTitleUVE = "UniVex Hub";
+inline constexpr std::string_view kHubWindowTitle = "UniVex Hub";
 /// The Hub's log, beside the project registry.
-inline constexpr std::string_view kHubLogFileNameUVE = "uve_hub.log";
+inline constexpr std::string_view kHubLogFileName = "uve_hub.log";
 
 /// Where the Hub keeps its state and which engine it launches.
-struct HubContextUVE final {
+struct HubContext final {
     /// An engine built from source beside the Hub (a development setup), if there is one. An
     /// installed Hub has none; its engines are downloaded into `enginesRoot`.
-    std::optional<Pack::EngineInstallUVE> localEngine;
+    std::optional<Pack::EngineInstall> localEngine;
     /// The project templates the Hub ships.
     std::filesystem::path templatesDirectory;
     std::filesystem::path registryFile;
@@ -47,13 +47,13 @@ struct HubContextUVE final {
     /// Downloaded engines live here, one folder per version.
     std::filesystem::path enginesRoot;
     /// Where engine releases are published; absent when the Hub ships without a feed.
-    std::optional<Online::EngineFeedSourceUVE> feed;
+    std::optional<Online::EngineFeedSource> feed;
     /// True on single-surface mobile screens: replaces the fixed left sidebar with a compact top
     /// navigation bar and stacks wide forms vertically.
     bool compactLayout = false;
 };
 
-enum class HubPageUVE : int {
+enum class HubPage : int {
     Projects = 0,
     NewProject,
     Engines,
@@ -62,84 +62,84 @@ enum class HubPageUVE : int {
 
 /// The Hub's window contents: the project list, project creation from templates, and the Hub's
 /// own settings. Opening or creating a project starts the engine's editor on it.
-class HubWindowUVE final {
+class HubWindow final {
 public:
-    explicit HubWindowUVE(HubContextUVE context);
-    ~HubWindowUVE();
+    explicit HubWindow(HubContext context);
+    ~HubWindow();
 
     /// Builds the widget tree; call once.
-    [[nodiscard]] prism::Ref<prism::Widget> BuildUVE();
-    void ShowPageUVE(HubPageUVE page);
+    [[nodiscard]] prism::Ref<prism::Widget> Build();
+    void ShowPage(HubPage page);
     /// Advances background work (release checks, downloads); call once a frame.
-    void TickUVE();
+    void Tick();
     /// Shows a message in the status line.
-    void ShowMessageUVE(const std::string& message, bool isError) { SetStatusUVE(message, isError); }
+    void ShowMessage(const std::string& message, bool isError) { SetStatus(message, isError); }
 
 private:
-    [[nodiscard]] prism::Ref<prism::Widget> BuildSidebarUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildTopNavUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildBrandHeaderUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildProjectsPageUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildNewProjectPageUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildSettingsPageUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildEnginesPageUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildEngineRowUVE(const std::string& title, const std::string& detail,
+    [[nodiscard]] prism::Ref<prism::Widget> BuildSidebar();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildTopNav();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildBrandHeader();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildProjectsPage();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildNewProjectPage();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildSettingsPage();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildEnginesPage();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildEngineRow(const std::string& title, const std::string& detail,
                                                               prism::Ref<prism::Widget> action);
-    [[nodiscard]] prism::Ref<prism::Widget> BuildProjectRowUVE(const Pack::ProjectListRowUVE& row);
-    [[nodiscard]] prism::Ref<NavItemUVE> MakeNavItemUVE(const std::string& label, prism::Icon icon, HubPageUVE page);
+    [[nodiscard]] prism::Ref<prism::Widget> BuildProjectRow(const Pack::ProjectListRow& row);
+    [[nodiscard]] prism::Ref<NavItem> MakeNavItem(const std::string& label, prism::Icon icon, HubPage page);
     /// A path field with a Browse button that opens the folder picker.
-    [[nodiscard]] prism::Ref<prism::Widget> FolderFieldUVE(const prism::Ref<prism::TextInput>& field,
+    [[nodiscard]] prism::Ref<prism::Widget> FolderField(const prism::Ref<prism::TextInput>& field,
                                                            const std::string& pickerTitle);
 
-    void ReloadRegistryUVE();
-    void RefreshInstalledEnginesUVE();
+    void ReloadRegistry();
+    void RefreshInstalledEngines();
     /// The engine versions a new project can be made for: installed ones, then published ones.
-    void RefreshNewProjectEnginesUVE();
-    void RefreshEngineListUVE();
-    void CheckForEnginesUVE();
-    void DownloadEngineUVE(const Online::EngineReleaseUVE& release);
+    void RefreshNewProjectEngines();
+    void RefreshEngineList();
+    void CheckForEngines();
+    void DownloadEngine(const Online::EngineRelease& release);
     /// Asks for a package file and installs it in the background.
-    void ImportEnginePackageUVE();
+    void ImportEnginePackage();
     /// True while a download or an import is running; only one engine installs at a time.
-    [[nodiscard]] bool IsInstallingEngineUVE() const noexcept { return m_download != nullptr || m_import.valid(); }
-    [[nodiscard]] bool IsInstalledUVE(const Core::VersionUVE& version) const;
-    void RefreshProjectListUVE();
-    void RefreshTemplateListUVE();
-    void SelectTemplateUVE(std::size_t index);
+    [[nodiscard]] bool IsInstallingEngine() const noexcept { return m_download != nullptr || m_import.valid(); }
+    [[nodiscard]] bool IsInstalled(const Core::Version& version) const;
+    void RefreshProjectList();
+    void RefreshTemplateList();
+    void SelectTemplate(std::size_t index);
     /// Applies `change` to a freshly loaded registry and saves it, so other tools' updates survive.
-    template <class ChangeUVE> void UpdateRegistryUVE(ChangeUVE&& change);
+    template <class Change> void UpdateRegistry(Change&& change);
 
-    void OpenProjectUVE(const std::filesystem::path& projectFile);
+    void OpenProject(const std::filesystem::path& projectFile);
     /// Opens the project whose manifest sits in `folder`.
-    void OpenProjectFolderUVE(const std::filesystem::path& folder);
-    void CreateProjectUVE();
-    void SaveSettingsUVE();
-    void SetStatusUVE(const std::string& message, bool isError);
-    void StepStartupLoadingUVE();
+    void OpenProjectFolder(const std::filesystem::path& folder);
+    void CreateProject();
+    void SaveSettings();
+    void SetStatus(const std::string& message, bool isError);
+    void StepStartupLoading();
 
-    HubContextUVE m_context;
-    Pack::ProjectRegistryUVE m_registry;
-    Pack::LauncherSettingsUVE m_settings;
-    std::vector<Pack::ProjectTemplateUVE> m_templates;
+    HubContext m_context;
+    Pack::ProjectRegistry m_registry;
+    Pack::LauncherSettings m_settings;
+    std::vector<Pack::ProjectTemplate> m_templates;
     std::size_t m_selectedTemplate = 0U;
-    Pack::ProjectListSortUVE m_sort = Pack::ProjectListSortUVE::RecentlyOpened;
+    Pack::ProjectListSort m_sort = Pack::ProjectListSort::RecentlyOpened;
 
-    std::vector<Online::InstalledEngineUVE> m_engines;
-    Online::EngineFeedResultUVE m_feedResult;
-    std::future<Online::EngineFeedResultUVE> m_feedRequest;
-    std::unique_ptr<Online::EngineDownloadUVE> m_download;
-    std::future<Online::EngineInstallOutcomeUVE> m_import;
+    std::vector<Online::InstalledEngine> m_engines;
+    Online::EngineFeedResult m_feedResult;
+    std::future<Online::EngineFeedResult> m_feedRequest;
+    std::unique_ptr<Online::EngineDownload> m_download;
+    std::future<Online::EngineInstallOutcome> m_import;
     /// Where the import picker opens next: the folder of the last imported package.
     std::filesystem::path m_lastImportFolder;
 
-    class HubLoadingOverlayUVE;
-    prism::Ref<HubLoadingOverlayUVE> m_loadingOverlay;
+    class HubLoadingOverlay;
+    prism::Ref<HubLoadingOverlay> m_loadingOverlay;
     int m_startupStep = 0;
     std::chrono::steady_clock::time_point m_startupBegan{};
     std::chrono::steady_clock::time_point m_startupFadeBegan{};
 
     prism::Ref<prism::StackSwitcher> m_pages;
-    std::vector<std::pair<HubPageUVE, prism::Ref<NavItemUVE>>> m_navigation;
+    std::vector<std::pair<HubPage, prism::Ref<NavItem>>> m_navigation;
     prism::Ref<prism::Label> m_status;
 
     prism::Ref<prism::TextInput> m_search;
@@ -147,12 +147,12 @@ private:
     prism::Ref<prism::TextInput> m_openPath;
 
     prism::Ref<prism::Box> m_templateRows;
-    std::vector<prism::Ref<NavItemUVE>> m_templateButtons;
+    std::vector<prism::Ref<NavItem>> m_templateButtons;
     prism::Ref<prism::Label> m_templateDescription;
     prism::Ref<prism::TextInput> m_projectName;
     prism::Ref<prism::TextInput> m_projectLocation;
     prism::Ref<prism::ComboBox> m_newProjectEngine;
-    std::vector<Core::VersionUVE> m_newProjectEngineVersions;
+    std::vector<Core::Version> m_newProjectEngineVersions;
     prism::Ref<prism::ComboBox> m_newProjectRenderer;
     prism::Ref<prism::Label> m_rendererDescription;
 

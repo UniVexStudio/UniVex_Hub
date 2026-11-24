@@ -10,26 +10,26 @@ namespace UVE::Window {
 /// Standalone Android EGL / OpenGL ES 3 surface manager for UniVex Hub.
 /// Handles fallback EGL config selection, 1x1 pbuffer idle surface during detach,
 /// surface reattachment on APP_CMD_INIT_WINDOW, and VSync swap interval.
-class AndroidWindowManagerUVE final {
+class AndroidWindowManager final {
 public:
-    AndroidWindowManagerUVE(void* nativeWindow, bool vsync = true);
-    ~AndroidWindowManagerUVE();
-    AndroidWindowManagerUVE(const AndroidWindowManagerUVE&) = delete;
-    AndroidWindowManagerUVE& operator=(const AndroidWindowManagerUVE&) = delete;
+    AndroidWindowManager(void* nativeWindow, bool vsync = true);
+    ~AndroidWindowManager();
+    AndroidWindowManager(const AndroidWindowManager&) = delete;
+    AndroidWindowManager& operator=(const AndroidWindowManager&) = delete;
 
-    [[nodiscard]] bool IsValidUVE() const noexcept;
-    void SetFocusedUVE(bool focused) noexcept;
-    [[nodiscard]] bool IsFocusedUVE() const noexcept;
-    void SwapBuffersUVE();
-    [[nodiscard]] bool AttachNativeWindowUVE(void* window);
-    void DetachNativeWindowUVE();
-    [[nodiscard]] bool TryRecoverSurfaceUVE() noexcept;
-    void SetVSyncEnabledUVE(bool enabled);
-    [[nodiscard]] bool IsVSyncEnabledUVE() const noexcept;
-    [[nodiscard]] std::uint32_t GetWidthUVE() const noexcept;
-    [[nodiscard]] std::uint32_t GetHeightUVE() const noexcept;
-    [[nodiscard]] void* GetNativeWindowHandleUVE() const noexcept;
-    [[nodiscard]] std::uint64_t GetPresentationCountUVE() const noexcept;
+    [[nodiscard]] bool IsValid() const noexcept;
+    void SetFocused(bool focused) noexcept;
+    [[nodiscard]] bool IsFocused() const noexcept;
+    void SwapBuffers();
+    [[nodiscard]] bool AttachNativeWindow(void* window);
+    void DetachNativeWindow();
+    [[nodiscard]] bool TryRecoverSurface() noexcept;
+    void SetVSyncEnabled(bool enabled);
+    [[nodiscard]] bool IsVSyncEnabled() const noexcept;
+    [[nodiscard]] std::uint32_t GetWidth() const noexcept;
+    [[nodiscard]] std::uint32_t GetHeight() const noexcept;
+    [[nodiscard]] void* GetNativeWindowHandle() const noexcept;
+    [[nodiscard]] std::uint64_t GetPresentationCount() const noexcept;
 
 private:
     struct Impl;

@@ -30,59 +30,59 @@
 
 namespace {
 
-inline constexpr std::string_view kSetupTitleUVE = "UniVex Hub Setup";
-inline constexpr std::string_view kUninstallTitleUVE = "Remove UniVex Hub";
-inline constexpr std::uint32_t kSetupWidthUVE = 820U;
-inline constexpr std::uint32_t kSetupHeightUVE = 520U;
-inline constexpr std::string_view kSetupLogFileNameUVE = "univex-hub-setup.log";
-inline constexpr int kInvalidCommandLineExitCodeUVE = 2;
-inline constexpr int kSetupFailedExitCodeUVE = 1;
+inline constexpr std::string_view kSetupTitle = "UniVex Hub Setup";
+inline constexpr std::string_view kUninstallTitle = "Remove UniVex Hub";
+inline constexpr std::uint32_t kSetupWidth = 820U;
+inline constexpr std::uint32_t kSetupHeight = 520U;
+inline constexpr std::string_view kSetupLogFileName = "univex-hub-setup.log";
+inline constexpr int kInvalidCommandLineExitCode = 2;
+inline constexpr int kSetupFailedExitCode = 1;
 /// How often a silent run checks on the installation.
-inline constexpr std::chrono::milliseconds kSilentPollIntervalUVE{50};
+inline constexpr std::chrono::milliseconds kSilentPollInterval{50};
 /// Temporary folder holding the interface assets unpacked from the payload.
-inline constexpr std::string_view kInterfaceScratchPrefixUVE = "univex-hub-setup-ui-";
+inline constexpr std::string_view kInterfaceScratchPrefix = "univex-hub-setup-ui-";
 /// Inside that scratch folder: the payload's copy and the folder its interface assets unpack into.
-inline constexpr std::string_view kPayloadArchiveStemUVE = "payload";
-inline constexpr std::string_view kInterfaceUnpackDirectoryNameUVE = "ui";
+inline constexpr std::string_view kPayloadArchiveStem = "payload";
+inline constexpr std::string_view kInterfaceUnpackDirectoryName = "ui";
 
-inline constexpr std::string_view kInstallDirOptionUVE = "--install-dir";
-inline constexpr std::string_view kSilentOptionUVE = "--silent";
-inline constexpr std::string_view kUninstallOptionUVE = "--uninstall";
-inline constexpr std::string_view kNoApplicationsEntryOptionUVE = "--no-applications-entry";
-inline constexpr std::string_view kEntriesRootOptionUVE = "--entries-root";
-inline constexpr std::string_view kStepOptionUVE = "--step";
-inline constexpr std::string_view kFramesOptionUVE = "--frames";
-inline constexpr std::string_view kScreenshotOptionUVE = "--screenshot";
+inline constexpr std::string_view kInstallDirOption = "--install-dir";
+inline constexpr std::string_view kSilentOption = "--silent";
+inline constexpr std::string_view kUninstallOption = "--uninstall";
+inline constexpr std::string_view kNoApplicationsEntryOption = "--no-applications-entry";
+inline constexpr std::string_view kEntriesRootOption = "--entries-root";
+inline constexpr std::string_view kStepOption = "--step";
+inline constexpr std::string_view kFramesOption = "--frames";
+inline constexpr std::string_view kScreenshotOption = "--screenshot";
 #if defined(_WIN32)
 /// Marks the copy of the uninstaller that runs from the temporary folder.
-inline constexpr std::string_view kRelocatedOptionUVE = "--relocated";
+inline constexpr std::string_view kRelocatedOption = "--relocated";
 #endif
 
-struct StepChoiceUVE final {
+struct StepChoice final {
     std::string_view word;
-    UVE::Setup::SetupStepUVE step;
+    UVE::Setup::SetupStep step;
 };
-inline constexpr std::array<StepChoiceUVE, 3U> kStepChoicesUVE{{
-    {"welcome", UVE::Setup::SetupStepUVE::Welcome},
-    {"location", UVE::Setup::SetupStepUVE::Location},
-    {"done", UVE::Setup::SetupStepUVE::Done},
+inline constexpr std::array<StepChoice, 3U> kStepChoices{{
+    {"welcome", UVE::Setup::SetupStep::Welcome},
+    {"location", UVE::Setup::SetupStep::Location},
+    {"done", UVE::Setup::SetupStep::Done},
 }};
 
-struct SetupOptionsUVE final {
+struct SetupOptions final {
     std::filesystem::path installDirectory;
     std::filesystem::path entriesRoot;
     bool silent = false;
     bool uninstall = false;
     bool addToApplications = true;
     bool relocated = false;
-    UVE::Setup::SetupStepUVE step = UVE::Setup::SetupStepUVE::Welcome;
+    UVE::Setup::SetupStep step = UVE::Setup::SetupStep::Welcome;
     std::optional<int> frameLimit;
     std::filesystem::path screenshot;
     std::optional<std::string> error;
 };
 
-[[nodiscard]] SetupOptionsUVE ParseOptionsUVE(const int argc, char** argv) {
-    SetupOptionsUVE options;
+[[nodiscard]] SetupOptions ParseOptions(const int argc, char** argv) {
+    SetupOptions options;
     const auto value = [&](int& index, const std::string_view option) -> std::optional<std::string> {
         if (index + 1 >= argc || std::string_view{argv[index + 1]}.starts_with("--")) {
             options.error = std::string(option) + " requires a value";
@@ -92,45 +92,45 @@ struct SetupOptionsUVE final {
     };
     for (int index = 1; index < argc && !options.error.has_value(); ++index) {
         const std::string_view argument{argv[index]};
-        if (argument == kInstallDirOptionUVE) {
+        if (argument == kInstallDirOption) {
             if (const std::optional<std::string> text = value(index, argument)) {
                 options.installDirectory = *text;
             }
-        } else if (argument == kEntriesRootOptionUVE) {
+        } else if (argument == kEntriesRootOption) {
             if (const std::optional<std::string> text = value(index, argument)) {
                 options.entriesRoot = *text;
             }
-        } else if (argument == kSilentOptionUVE) {
+        } else if (argument == kSilentOption) {
             options.silent = true;
-        } else if (argument == kUninstallOptionUVE) {
+        } else if (argument == kUninstallOption) {
             options.uninstall = true;
-        } else if (argument == kNoApplicationsEntryOptionUVE) {
+        } else if (argument == kNoApplicationsEntryOption) {
             options.addToApplications = false;
 #if defined(_WIN32)
-        } else if (argument == kRelocatedOptionUVE) {
+        } else if (argument == kRelocatedOption) {
             options.relocated = true;
 #endif
-        } else if (argument == kStepOptionUVE) {
+        } else if (argument == kStepOption) {
             if (const std::optional<std::string> text = value(index, argument)) {
-                const auto choice = std::find_if(kStepChoicesUVE.begin(), kStepChoicesUVE.end(),
-                                                 [&text](const StepChoiceUVE& item) { return item.word == *text; });
-                if (choice == kStepChoicesUVE.end()) {
-                    options.error = std::string(kStepOptionUVE) + " must be welcome, location or done";
+                const auto choice = std::find_if(kStepChoices.begin(), kStepChoices.end(),
+                                                 [&text](const StepChoice& item) { return item.word == *text; });
+                if (choice == kStepChoices.end()) {
+                    options.error = std::string(kStepOption) + " must be welcome, location or done";
                 } else {
                     options.step = choice->step;
                 }
             }
-        } else if (argument == kFramesOptionUVE) {
+        } else if (argument == kFramesOption) {
             if (const std::optional<std::string> text = value(index, argument)) {
                 int frames = 0;
                 const auto [end, error] = std::from_chars(text->data(), text->data() + text->size(), frames);
                 if (error != std::errc{} || end != text->data() + text->size() || frames < 1) {
-                    options.error = std::string(kFramesOptionUVE) + " requires a positive whole number";
+                    options.error = std::string(kFramesOption) + " requires a positive whole number";
                 } else {
                     options.frameLimit = frames;
                 }
             }
-        } else if (argument == kScreenshotOptionUVE) {
+        } else if (argument == kScreenshotOption) {
             if (const std::optional<std::string> text = value(index, argument)) {
                 options.screenshot = *text;
             }
@@ -144,15 +144,15 @@ struct SetupOptionsUVE final {
 #if defined(_WIN32)
 /// A running program cannot delete its own file on Windows, so the uninstaller re-runs itself from
 /// the temporary folder and lets that copy remove the installation. True when the copy took over.
-[[nodiscard]] bool RelaunchOutsideInstallationUVE(const std::filesystem::path& self, int argc, char** argv) {
+[[nodiscard]] bool RelaunchOutsideInstallation(const std::filesystem::path& self, int argc, char** argv) {
     std::error_code error;
     const std::filesystem::path copy = std::filesystem::temp_directory_path(error) / self.filename();
     if (error || !std::filesystem::copy_file(self, copy, std::filesystem::copy_options::overwrite_existing, error)) {
         return false;
     }
     std::vector<std::string> arguments(argv + 1, argv + argc);
-    arguments.emplace_back(kRelocatedOptionUVE);
-    if (!UVE::Platform::LaunchDetachedProcessUVE({copy, arguments, {}}).launched) {
+    arguments.emplace_back(kRelocatedOption);
+    if (!UVE::Platform::LaunchDetachedProcess({copy, arguments, {}}).launched) {
         return false;
     }
     // The temporary copy cleans itself up at the next restart.
@@ -163,27 +163,27 @@ struct SetupOptionsUVE final {
 
 /// A single-file setup has no PRISM assets beside it; they travel in the payload. This unpacks just
 /// those into `scratch` and returns their folder, or empty when the payload has none.
-[[nodiscard]] std::filesystem::path UnpackInterfaceAssetsUVE(const UVE::Setup::SetupContextUVE& context,
+[[nodiscard]] std::filesystem::path UnpackInterfaceAssets(const UVE::Setup::SetupContext& context,
                                                              const std::filesystem::path& scratch) {
     if (scratch.empty()) {
         return {};
     }
-    const std::filesystem::path unpacked = scratch / kInterfaceUnpackDirectoryNameUVE;
+    const std::filesystem::path unpacked = scratch / kInterfaceUnpackDirectoryName;
     const std::filesystem::path archive =
-        scratch / (std::string(kPayloadArchiveStemUVE) + std::string(UVE::Online::kTarGzFileExtensionUVE));
+        scratch / (std::string(kPayloadArchiveStem) + std::string(UVE::Online::kTarGzFileExtension));
     std::error_code error;
     std::filesystem::create_directories(unpacked, error);
     if (error || !context.payload.has_value() ||
-        !UVE::Online::ExtractSetupPayloadUVE(context.setupExecutable, *context.payload, archive)) {
+        !UVE::Online::ExtractSetupPayload(context.setupExecutable, *context.payload, archive)) {
         return {};
     }
-    UVE::Online::ArchiveLimitsUVE limits;
+    UVE::Online::ArchiveLimits limits;
     limits.include = [](const std::filesystem::path& path) {
-        return !path.empty() && *path.begin() == UVE::LauncherUI::kPrismAssetsDirectoryNameUVE;
+        return !path.empty() && *path.begin() == UVE::LauncherUI::kPrismAssetsDirectoryName;
     };
-    const bool extracted = UVE::Online::ExtractTarGzUVE(archive, unpacked, limits).extracted;
+    const bool extracted = UVE::Online::ExtractTarGz(archive, unpacked, limits).extracted;
     std::filesystem::remove(archive, error);
-    return extracted ? unpacked / UVE::LauncherUI::kPrismAssetsDirectoryNameUVE : std::filesystem::path{};
+    return extracted ? unpacked / UVE::LauncherUI::kPrismAssetsDirectoryName : std::filesystem::path{};
 }
 
 } // namespace
@@ -194,77 +194,77 @@ struct SetupOptionsUVE final {
 /// `--no-applications-entry` skips the applications menu; `--entries-root <dir>` writes that entry
 /// elsewhere (isolated runs). `--step`, `--frames` and `--screenshot` drive the window for automation.
 int main(const int argc, char** argv) {
-    const SetupOptionsUVE options = ParseOptionsUVE(argc, argv);
+    const SetupOptions options = ParseOptions(argc, argv);
     if (options.error.has_value() || options.silent) {
-        UVE::Platform::AttachParentConsoleForCliUVE();
+        UVE::Platform::AttachParentConsoleForCli();
     }
     if (options.error.has_value()) {
         std::cerr << "uve_hub_setup: " << *options.error << '\n';
-        return kInvalidCommandLineExitCodeUVE;
+        return kInvalidCommandLineExitCode;
     }
-    const std::filesystem::path self = UVE::Platform::CurrentExecutablePathUVE();
+    const std::filesystem::path self = UVE::Platform::CurrentExecutablePath();
     std::error_code error;
     const std::filesystem::path selfDirectory =
         self.empty() ? std::filesystem::absolute(std::filesystem::path(argv[0]), error).parent_path() : self.parent_path();
 
-    UVE::Setup::SetupContextUVE context;
-    context.mode = options.uninstall ? UVE::Setup::SetupModeUVE::Uninstall : UVE::Setup::SetupModeUVE::Install;
+    UVE::Setup::SetupContext context;
+    context.mode = options.uninstall ? UVE::Setup::SetupMode::Uninstall : UVE::Setup::SetupMode::Install;
     context.setupExecutable = self;
-    context.payload = self.empty() ? std::nullopt : UVE::Online::LocateSetupPayloadUVE(self);
+    context.payload = self.empty() ? std::nullopt : UVE::Online::LocateSetupPayload(self);
     context.entriesRoot = options.entriesRoot;
-    context.version = UVE::Online::FormatDisplayVersionUVE(UVE::Online::kHubVersionUVE);
+    context.version = UVE::Online::FormatDisplayVersion(UVE::Online::kHubVersion);
     if (!options.installDirectory.empty()) {
         context.installDirectory = std::filesystem::absolute(options.installDirectory, error);
     } else if (options.uninstall) {
         // The uninstaller lives inside the installation it removes.
         context.installDirectory = selfDirectory;
-    } else if (const std::optional<std::filesystem::path> fallback = UVE::Online::DefaultHubInstallDirectoryUVE()) {
+    } else if (const std::optional<std::filesystem::path> fallback = UVE::Online::DefaultHubInstallDirectory()) {
         context.installDirectory = *fallback;
     }
 
 #if defined(_WIN32)
     if (options.uninstall && !options.relocated &&
         selfDirectory.lexically_normal() == context.installDirectory.lexically_normal() &&
-        RelaunchOutsideInstallationUVE(self, argc, argv)) {
+        RelaunchOutsideInstallation(self, argc, argv)) {
         return 0;
     }
 #endif
 
     if (options.silent) {
-        UVE::Setup::SetupJobUVE job(context, options.addToApplications);
-        while (!job.IsFinishedUVE()) {
-            std::this_thread::sleep_for(kSilentPollIntervalUVE);
+        UVE::Setup::SetupJob job(context, options.addToApplications);
+        while (!job.IsFinished()) {
+            std::this_thread::sleep_for(kSilentPollInterval);
         }
-        const UVE::Online::HubSetupResultUVE result = job.ResultUVE();
+        const UVE::Online::HubSetupResult result = job.Result();
         (result.succeeded ? std::cout : std::cerr) << "uve_hub_setup: " << result.message << '\n';
-        return result.succeeded ? 0 : kSetupFailedExitCodeUVE;
+        return result.succeeded ? 0 : kSetupFailedExitCode;
     }
 
-    UVE::LauncherUI::LauncherWindowDescUVE window;
-    window.title = std::string(options.uninstall ? kUninstallTitleUVE : kSetupTitleUVE);
-    window.width = kSetupWidthUVE;
-    window.height = kSetupHeightUVE;
+    UVE::LauncherUI::LauncherWindowDesc window;
+    window.title = std::string(options.uninstall ? kUninstallTitle : kSetupTitle);
+    window.width = kSetupWidth;
+    window.height = kSetupHeight;
     // Assets beside the program (a development build, or the uninstaller inside an installation)
     // are used as they are; a downloaded setup unpacks its own.
-    window.prismAssetsDirectory = selfDirectory / UVE::LauncherUI::kPrismAssetsDirectoryNameUVE;
-    const std::filesystem::path scratch = UVE::LauncherUI::UniqueTemporaryPathUVE(kInterfaceScratchPrefixUVE, {});
+    window.prismAssetsDirectory = selfDirectory / UVE::LauncherUI::kPrismAssetsDirectoryName;
+    const std::filesystem::path scratch = UVE::LauncherUI::UniqueTemporaryPath(kInterfaceScratchPrefix, {});
     if (!std::filesystem::is_directory(window.prismAssetsDirectory, error)) {
-        window.prismAssetsDirectory = UnpackInterfaceAssetsUVE(context, scratch);
+        window.prismAssetsDirectory = UnpackInterfaceAssets(context, scratch);
     }
-    window.logFile = std::filesystem::temp_directory_path(error) / kSetupLogFileNameUVE;
+    window.logFile = std::filesystem::temp_directory_path(error) / kSetupLogFileName;
     window.commandLine = std::vector<std::string>(argv + 1, argv + argc);
     window.frameLimit = options.frameLimit;
     window.screenshot = options.screenshot;
 
-    UVE::Setup::SetupWindowUVE setup(std::move(context));
-    const int exitCode = UVE::LauncherUI::RunLauncherWindowUVE(
+    UVE::Setup::SetupWindow setup(std::move(context));
+    const int exitCode = UVE::LauncherUI::RunLauncherWindow(
         window,
         [&setup, &options] {
-            prism::Ref<prism::Widget> root = setup.BuildUVE();
-            setup.ShowStepUVE(options.step);
+            prism::Ref<prism::Widget> root = setup.Build();
+            setup.ShowStep(options.step);
             return root;
         },
-        [&setup] { setup.TickUVE(); });
+        [&setup] { setup.Tick(); });
     std::filesystem::remove_all(scratch, error);
     return exitCode;
 }

@@ -12,13 +12,13 @@ namespace UVE::LauncherUI {
 
 /// One full-width selectable row (a sidebar page, a list choice): icon and label left-aligned, a
 /// filled background on hover, and an accent bar along the left edge while it is the active one.
-class NavItemUVE final : public prism::Widget {
+class NavItem final : public prism::Widget {
 public:
-    NavItemUVE(std::string label, prism::Icon icon);
+    NavItem(std::string label, prism::Icon icon);
 
-    void SetActiveUVE(bool active);
-    [[nodiscard]] bool IsActiveUVE() const noexcept { return m_active; }
-    void SetCompactUVE(bool compact);
+    void SetActive(bool active);
+    [[nodiscard]] bool IsActive() const noexcept { return m_active; }
+    void SetCompact(bool compact);
 
     prism::Callback<> onActivate;
 
@@ -49,9 +49,9 @@ private:
 
 /// The UniVex mark at a fixed size, from the brand image the host loads into PRISM. Without that
 /// image (assets missing) it shows a plain accent disc of the same size.
-class BrandMarkUVE final : public prism::Widget {
+class BrandMark final : public prism::Widget {
 public:
-    explicit BrandMarkUVE(float size) : m_size(size) {}
+    explicit BrandMark(float size) : m_size(size) {}
     prism::Vec2 measure(prism::Vec2 available) override;
     void paint(prism::Canvas& canvas) override;
     [[nodiscard]] bool hitSelf() const override { return false; }

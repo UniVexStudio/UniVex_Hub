@@ -220,7 +220,7 @@ endif()
 
 add_library(hub_core STATIC ${HUB_CORE_SOURCES})
 target_include_directories(hub_core PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/contracts/v1"
+    "${CMAKE_CURRENT_SOURCE_DIR}/contracts/v2"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/common"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/platform"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/pack"

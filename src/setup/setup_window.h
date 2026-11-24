@@ -22,25 +22,25 @@
 namespace UVE::Setup {
 
 /// The steps of an installation, in order.
-enum class SetupStepUVE : int {
+enum class SetupStep : int {
     Welcome = 0,
     Location,
     Installing,
     Done,
 };
-inline constexpr std::size_t kSetupStepCountUVE = static_cast<std::size_t>(SetupStepUVE::Done) + 1U;
+inline constexpr std::size_t kSetupStepCount = static_cast<std::size_t>(SetupStep::Done) + 1U;
 
 /// What the setup program was started to do.
-enum class SetupModeUVE : std::uint8_t {
+enum class SetupMode : std::uint8_t {
     Install = 0,
     Uninstall,
 };
 
-struct SetupContextUVE final {
-    SetupModeUVE mode = SetupModeUVE::Install;
+struct SetupContext final {
+    SetupMode mode = SetupMode::Install;
     /// The setup program itself, which carries the payload and becomes the uninstaller.
     std::filesystem::path setupExecutable;
-    std::optional<Online::SetupPayloadLocationUVE> payload;
+    std::optional<Online::SetupPayloadLocation> payload;
     std::filesystem::path installDirectory;
     /// Where the applications-menu entry goes; empty uses the platform's own place.
     std::filesystem::path entriesRoot;
@@ -49,54 +49,54 @@ struct SetupContextUVE final {
 
 /// Runs the whole installation off the interface thread: unpack, install, add to the applications
 /// menu. Shared by the window and by silent installs.
-class SetupJobUVE final {
+class SetupJob final {
 public:
-    enum class StageUVE : std::uint8_t { Unpacking, Installing, Registering, Finished };
+    enum class Stage : std::uint8_t { Unpacking, Installing, Registering, Finished };
 
-    SetupJobUVE(SetupContextUVE context, bool addToApplications);
-    SetupJobUVE(const SetupJobUVE&) = delete;
-    SetupJobUVE& operator=(const SetupJobUVE&) = delete;
+    SetupJob(SetupContext context, bool addToApplications);
+    SetupJob(const SetupJob&) = delete;
+    SetupJob& operator=(const SetupJob&) = delete;
 
-    [[nodiscard]] StageUVE CurrentStageUVE() const noexcept { return m_stage.load(); }
-    [[nodiscard]] bool IsFinishedUVE() const;
+    [[nodiscard]] Stage CurrentStage() const noexcept { return m_stage.load(); }
+    [[nodiscard]] bool IsFinished() const;
     /// Valid once finished.
-    [[nodiscard]] Online::HubSetupResultUVE ResultUVE();
+    [[nodiscard]] Online::HubSetupResult Result();
 
 private:
-    [[nodiscard]] Online::HubSetupResultUVE RunUVE(SetupContextUVE context, bool addToApplications);
+    [[nodiscard]] Online::HubSetupResult Run(SetupContext context, bool addToApplications);
 
-    std::atomic<StageUVE> m_stage{StageUVE::Unpacking};
-    std::future<Online::HubSetupResultUVE> m_future;
-    std::optional<Online::HubSetupResultUVE> m_result;
+    std::atomic<Stage> m_stage{Stage::Unpacking};
+    std::future<Online::HubSetupResult> m_future;
+    std::optional<Online::HubSetupResult> m_result;
 };
 
 /// The installer's window: a rail naming the steps beside the page for the current step.
-class SetupWindowUVE final {
+class SetupWindow final {
 public:
-    explicit SetupWindowUVE(SetupContextUVE context);
+    explicit SetupWindow(SetupContext context);
 
-    [[nodiscard]] prism::Ref<prism::Widget> BuildUVE();
-    void ShowStepUVE(SetupStepUVE step);
-    void TickUVE();
+    [[nodiscard]] prism::Ref<prism::Widget> Build();
+    void ShowStep(SetupStep step);
+    void Tick();
 
 private:
-    [[nodiscard]] prism::Ref<prism::Widget> BuildRailUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildWelcomePageUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildLocationPageUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildInstallingPageUVE();
-    [[nodiscard]] prism::Ref<prism::Widget> BuildDonePageUVE();
-    void RefreshActionsUVE();
-    void StartUVE();
-    void LaunchHubUVE();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildRail();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildWelcomePage();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildLocationPage();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildInstallingPage();
+    [[nodiscard]] prism::Ref<prism::Widget> BuildDonePage();
+    void RefreshActions();
+    void Start();
+    void LaunchHub();
 
-    SetupContextUVE m_context;
-    SetupStepUVE m_step = SetupStepUVE::Welcome;
+    SetupContext m_context;
+    SetupStep m_step = SetupStep::Welcome;
     bool m_existingInstall = false;
-    std::unique_ptr<SetupJobUVE> m_job;
-    std::optional<Online::HubSetupResultUVE> m_outcome;
+    std::unique_ptr<SetupJob> m_job;
+    std::optional<Online::HubSetupResult> m_outcome;
 
     prism::Ref<prism::StackSwitcher> m_pages;
-    std::vector<prism::Ref<LauncherUI::NavItemUVE>> m_stepItems;
+    std::vector<prism::Ref<LauncherUI::NavItem>> m_stepItems;
     prism::Ref<prism::TextInput> m_location;
     prism::Ref<prism::CheckBox> m_addToApplications;
     prism::Ref<prism::Label> m_locationProblem;

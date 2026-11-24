@@ -16,19 +16,19 @@ namespace {
 std::mutex g_logMutex;
 std::ofstream g_logFile;
 
-[[nodiscard]] const char* LevelTagUVE(const LogLevelUVE level) noexcept {
+[[nodiscard]] const char* LevelTag(const LogLevel level) noexcept {
     switch (level) {
-    case LogLevelUVE::Info: return "INFO";
-    case LogLevelUVE::Warning: return "WARN";
-    case LogLevelUVE::Error: return "ERROR";
-    case LogLevelUVE::Fatal: return "FATAL";
+    case LogLevel::Info: return "INFO";
+    case LogLevel::Warning: return "WARN";
+    case LogLevel::Error: return "ERROR";
+    case LogLevel::Fatal: return "FATAL";
     }
     return "INFO";
 }
 
 } // namespace
 
-void SetLogFileUVE(const std::filesystem::path& path) {
+void SetLogFile(const std::filesystem::path& path) {
     std::lock_guard lock(g_logMutex);
     g_logFile.close();
     if (path.empty()) {
@@ -41,22 +41,22 @@ void SetLogFileUVE(const std::filesystem::path& path) {
     g_logFile.open(path, std::ios::out | std::ios::trunc);
 }
 
-void CloseLogFileUVE() {
+void CloseLogFile() {
     std::lock_guard lock(g_logMutex);
     g_logFile.close();
 }
 
-void WriteLogLineUVE(const LogLevelUVE level, const std::string_view message) {
+void WriteLogLine(const LogLevel level, const std::string_view message) {
     std::lock_guard lock(g_logMutex);
-    const char* const tag = LevelTagUVE(level);
+    const char* const tag = LevelTag(level);
 #if defined(__ANDROID__)
     int prio = ANDROID_LOG_INFO;
-    if (level == LogLevelUVE::Warning) prio = ANDROID_LOG_WARN;
-    else if (level == LogLevelUVE::Error) prio = ANDROID_LOG_ERROR;
-    else if (level == LogLevelUVE::Fatal) prio = ANDROID_LOG_FATAL;
+    if (level == LogLevel::Warning) prio = ANDROID_LOG_WARN;
+    else if (level == LogLevel::Error) prio = ANDROID_LOG_ERROR;
+    else if (level == LogLevel::Fatal) prio = ANDROID_LOG_FATAL;
     __android_log_print(prio, "UniVex", "%.*s", static_cast<int>(message.size()), message.data());
 #else
-    if (level == LogLevelUVE::Error || level == LogLevelUVE::Fatal) {
+    if (level == LogLevel::Error || level == LogLevel::Fatal) {
         std::fprintf(stderr, "[%s] %.*s\n", tag, static_cast<int>(message.size()), message.data());
     }
 #endif

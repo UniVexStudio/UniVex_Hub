@@ -2,7 +2,7 @@
 
 Standalone repository for **UniVex Hub** — the desktop launcher (`uve_hub`), Linux/Windows installers (`uve_hub_setup`, `.deb`, Windows Inno Setup wizard), and Android Hub APK host (`com.univex.hub`).
 
-UniVex Hub owns a trimmed C++23 PRISM UI snapshot, `.uvproject` / template management, engine feed downloads, and the Android `UniVexActivity` host with zero git submodule dependency on `UniVexStudio/UniVex_Engine`. Shared interfaces between the Hub and Engine are documented and tested under [`contracts/v1/`](contracts/v1/README.md).
+UniVex Hub owns a trimmed C++23 PRISM UI snapshot, `.uvproject` / template management, engine feed downloads, and the Android `UniVexActivity` host with zero git submodule dependency on `UniVexStudio/UniVex_Engine`. Shared interfaces between the Hub and Engine are documented and tested under [`contracts/v2/`](contracts/v2/README.md).
 
 ## Building Locally (Linux)
 
