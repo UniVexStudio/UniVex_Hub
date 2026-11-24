@@ -82,6 +82,11 @@ class HubContractsTest(unittest.TestCase):
             data = json.loads(tmpl.read_text(encoding="utf-8"))
             self.assertEqual(data["format"], "uvtemplate")
             self.assertEqual(data["schemaVersion"], 1)
+        settings_cpp = (REPO_ROOT / "src" / "platform" / "application_window_settings.cpp").read_text(encoding="utf-8")
+        smoke_py = (REPO_ROOT / "tools" / "smoke_hub.py").read_text(encoding="utf-8")
+        for profile_id in ("compatibility", "mobile", "forward_plus"):
+            self.assertIn(f'"{profile_id}"', settings_cpp)
+        self.assertIn('"rendererProfile": "mobile"', smoke_py)
 
     def test_contract_3_installer_and_desktop_names(self) -> None:
         self.assert_cpp("kEditorExecutableStemUVE", "uve_editor")

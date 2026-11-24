@@ -17,7 +17,7 @@ Every UniVex project has a JSON manifest with the `.uvproject` extension at its 
     "patch": 2,
     "build": 0
   },
-  "rendererProfile": "Forward+",
+  "rendererProfile": "forward_plus",
   "contentRoot": "Content",
   "assetDatabasePath": ".uvassetdb",
   "settingsPath": "project.uvsettings",
@@ -33,12 +33,12 @@ Every UniVex project has a JSON manifest with the `.uvproject` extension at its 
 - `projectId`: non-empty stable identifier
 - `displayName`: human-readable project name
 - `engineVersion`: object `{ major, minor, patch, build }` (unsigned 32-bit integers)
-- `rendererProfile`: one of `"Compatibility"`, `"Mobile"`, or `"Forward+"` (optional for older manifests; defaults to `"Mobile"` on Android and `"Forward+"` on desktop)
+- `rendererProfile`: serialized identifier `"compatibility"`, `"mobile"`, or `"forward_plus"` (UI labels: `Compatibility`, `Mobile`, `Forward+`; optional for older manifests, defaulting to `"mobile"` on Android and `"forward_plus"` on desktop)
 - `contentRoot`: project-relative directory path (typically `"Content"`)
 - `assetDatabasePath`: project-relative filename (typically `".uvassetdb"`)
 - `settingsPath`: project-relative filename (typically `"project.uvsettings"`)
 - `startupScenePath`: content-relative startup scene path, or empty string `""` when not yet configured
-- Optional blocks: `product` (`EditorProjectProductMetadataUVE`) and `application` (`EditorProjectApplicationSettingsUVE`), preserved round-trip without data loss.
+- Optional blocks: `productMetadata` (`EditorProjectProductMetadataUVE`) and `applicationSettings` (`EditorProjectApplicationSettingsUVE`), preserved round-trip without data loss.
 
 ## 2. Project Templates (`template.json` & `starter_scene.uvstarter`)
 

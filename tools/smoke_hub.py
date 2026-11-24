@@ -22,7 +22,7 @@ STARTED = "UVE_HUB_STARTED"
 RENDERED = "UVE_HUB_RENDERED"
 EDITOR_STARTED = "UVE_EDITOR_STARTED"
 EDITOR_RENDERED = "UVE_EDITOR_RENDERED"
-ENDED = ("UVE_HUB_FAILED", "UVE_HUB_STOPPED", "UVE_HUB_EDITOR_FAILED", "UVE_EDITOR_FAILED")
+ENDED = ("UVE_HUB_FAILED", "UVE_HUB_STOPPED", "UVE_HUB_LAUNCH_FAILED", "UVE_HUB_EDITOR_FAILED", "UVE_EDITOR_FAILED")
 DEFAULT_TIMEOUT_SECONDS = 120.0
 POLL_SECONDS = 1.0
 SETTLE_SECONDS = 5.0
@@ -96,7 +96,7 @@ def main() -> int:
             "projectId": "smoke-project",
             "displayName": "Smoke Project",
             "engineVersion": {"major": major, "minor": minor, "patch": patch, "build": build},
-            "rendererProfile": "Mobile",
+            "rendererProfile": "mobile",
             "contentRoot": "Content",
             "assetDatabasePath": ".uvassetdb",
             "settingsPath": "Config/project_settings.json",
