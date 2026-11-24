@@ -18,21 +18,21 @@
 namespace UVE::LauncherUI {
 namespace {
 
-inline constexpr std::uint32_t kFocusedFrameRateCapUVE = 60U;
-inline constexpr std::uint32_t kUnfocusedFrameRateCapUVE = 10U;
+inline constexpr std::uint32_t kFocusedFrameRateCap = 60U;
+inline constexpr std::uint32_t kUnfocusedFrameRateCap = 10U;
 
 } // namespace
 
-void RequestLauncherCloseUVE() {
+void RequestLauncherClose() {
     if (prism::Application::exists()) {
         prism::Application::get().quit();
     }
 }
 
-int RunLauncherWindowUVE(const LauncherWindowDescUVE& desc,
+int RunLauncherWindow(const LauncherWindowDesc& desc,
                          const std::function<prism::Ref<prism::Widget>()>& buildRoot,
                          const std::function<void()>& tick) {
-    Host::HubWindowConfigUVE config{};
+    Host::HubWindowConfig config{};
     config.title = desc.title;
     config.width = desc.width;
     config.height = desc.height;
@@ -41,28 +41,28 @@ int RunLauncherWindowUVE(const LauncherWindowDescUVE& desc,
 #if defined(__ANDROID__)
     config.focusedFrameRateCap = 0U;
 #else
-    config.focusedFrameRateCap = kFocusedFrameRateCapUVE;
+    config.focusedFrameRateCap = kFocusedFrameRateCap;
 #endif
-    config.unfocusedFrameRateCap = kUnfocusedFrameRateCapUVE;
+    config.unfocusedFrameRateCap = kUnfocusedFrameRateCap;
     config.nativeSurface = desc.nativeSurface;
 
-    Host::HubWindowHostUVE windowHost(config);
+    Host::HubWindowHost windowHost(config);
     try {
-        if (!windowHost.InitializeUVE()) {
+        if (!windowHost.Initialize()) {
             UVE_ERROR("{}: no window could be created", desc.title);
-            return kLauncherStartupFailedExitCodeUVE;
+            return kLauncherStartupFailedExitCode;
         }
-        void* const nativeWindow = windowHost.GetNativeWindowHandleUVE();
+        void* const nativeWindow = windowHost.GetNativeWindowHandle();
         if (nativeWindow == nullptr) {
             UVE_ERROR("{}: no window handle was returned", desc.title);
-            windowHost.ShutdownUVE();
-            return kLauncherStartupFailedExitCodeUVE;
+            windowHost.Shutdown();
+            return kLauncherStartupFailedExitCode;
         }
-        Editor::EditorHostUVE uiHost;
-        if (!uiHost.InitializeUVE(Window::GlfwWindowFromNativeHandleUVE(nativeWindow), desc.prismAssetsDirectory)) {
+        Editor::EditorHost uiHost;
+        if (!uiHost.Initialize(Window::GlfwWindowFromNativeHandle(nativeWindow), desc.prismAssetsDirectory)) {
             UVE_ERROR("{}: the interface could not start", desc.title);
-            windowHost.ShutdownUVE();
-            return kLauncherStartupFailedExitCodeUVE;
+            windowHost.Shutdown();
+            return kLauncherStartupFailedExitCode;
         }
 
         auto safeFrame = prism::make<prism::Border>();
@@ -73,18 +73,18 @@ int RunLauncherWindowUVE(const LauncherWindowDescUVE& desc,
             prism::WindowChromeOptions chrome;
             chrome.title = desc.title;
             chrome.showIdentity = desc.showTitleInChrome;
-            uiHost.SetRootUVE(prism::wrapWithWindowChrome(safeFrame, Editor::EditorHostUVE::kMainWindowUVE, chrome));
+            uiHost.SetRoot(prism::wrapWithWindowChrome(safeFrame, Editor::EditorHost::kMainWindow, chrome));
         } else {
-            uiHost.SetRootUVE(safeFrame);
+            uiHost.SetRoot(safeFrame);
         }
 
         int framesRun = 0;
-        while (!uiHost.QuitRequestedUVE() && !windowHost.IsCloseRequestedUVE() &&
+        while (!uiHost.QuitRequested() && !windowHost.IsCloseRequested() &&
                (!desc.frameLimit.has_value() || framesRun < *desc.frameLimit)) {
             if (desc.beforeFrame && !desc.beforeFrame(windowHost)) {
                 break;
             }
-            windowHost.BeginFrameUVE();
+            windowHost.BeginFrame();
             if (desc.safeArea) {
                 const prism::Margin area = desc.safeArea();
                 if (area.l != safeArea.l || area.t != safeArea.t || area.r != safeArea.r || area.b != safeArea.b) {
@@ -95,30 +95,30 @@ int RunLauncherWindowUVE(const LauncherWindowDescUVE& desc,
             if (tick) {
                 tick();
             }
-            uiHost.BeginFrameUVE();
-            uiHost.RenderUVE(std::span<const Editor::EditorHostUVE::ViewImageUVE>{});
-            windowHost.EndFrameUVE();
+            uiHost.BeginFrame();
+            uiHost.Render(std::span<const Editor::EditorHost::ViewImage>{});
+            windowHost.EndFrame();
             ++framesRun;
         }
-        if (!desc.screenshot.empty() && !uiHost.SaveScreenshotUVE(desc.screenshot)) {
+        if (!desc.screenshot.empty() && !uiHost.SaveScreenshot(desc.screenshot)) {
             std::fprintf(stderr, "%s: could not save the screenshot\n", desc.title.c_str());
         }
-        uiHost.ShutdownUVE();
-        windowHost.ShutdownUVE();
+        uiHost.Shutdown();
+        windowHost.Shutdown();
         return 0;
     } catch (const std::exception& exception) {
         UVE_FATAL("launcher: unhandled exception - shutting down: {}", exception.what());
     } catch (...) {
         UVE_FATAL("launcher: unhandled non-std::exception - shutting down");
     }
-    if (windowHost.IsRunningUVE()) {
+    if (windowHost.IsRunning()) {
         try {
-            windowHost.ShutdownUVE();
+            windowHost.Shutdown();
         } catch (...) {
             UVE_FATAL("launcher: shutting down after an exception failed as well");
         }
     }
-    return Host::HubWindowHostUVE::kUnhandledExceptionExitCodeUVE;
+    return Host::HubWindowHost::kUnhandledExceptionExitCode;
 }
 
 } // namespace UVE::LauncherUI

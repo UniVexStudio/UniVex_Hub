@@ -12,17 +12,17 @@
 #include "prism/Widget.h"
 
 namespace UVE::Host {
-class HubWindowHostUVE;
+class HubWindowHost;
 }
 
 namespace UVE::LauncherUI {
 
 /// PRISM's fonts, themes and locales ship beside every launcher executable under this name.
-inline constexpr std::string_view kPrismAssetsDirectoryNameUVE = "prism_assets";
+inline constexpr std::string_view kPrismAssetsDirectoryName = "prism_assets";
 /// Process exit code when the window or its interface cannot start.
-inline constexpr int kLauncherStartupFailedExitCodeUVE = 1;
+inline constexpr int kLauncherStartupFailedExitCode = 1;
 
-struct LauncherWindowDescUVE final {
+struct LauncherWindowDesc final {
     /// The window's name for the operating system (taskbar, window switcher).
     std::string title;
     /// Whether the title bar repeats the mark and title.
@@ -31,14 +31,14 @@ struct LauncherWindowDescUVE final {
     bool windowChrome = true;
     std::uint32_t width = 0U;
     std::uint32_t height = 0U;
-    /// PRISM's fonts, themes and locales (normally kPrismAssetsDirectoryNameUVE beside the executable).
+    /// PRISM's fonts, themes and locales (normally kPrismAssetsDirectoryName beside the executable).
     std::filesystem::path prismAssetsDirectory;
     std::filesystem::path logFile;
     std::vector<std::string> commandLine;
     /// Android: the activity's surface to draw into (desktop builds open a window of their own).
     void* nativeSurface = nullptr;
     /// Runs before every frame with the running host; returning false ends the loop.
-    std::function<bool(Host::HubWindowHostUVE&)> beforeFrame;
+    std::function<bool(Host::HubWindowHost&)> beforeFrame;
     /// Edges of the surface the interface keeps clear (display cutouts / IME), in logical pixels.
     std::function<prism::Margin()> safeArea;
     /// Automation: stop after this many frames, then save the window to `screenshot` if set.
@@ -46,10 +46,10 @@ struct LauncherWindowDescUVE final {
     std::filesystem::path screenshot;
 };
 
-[[nodiscard]] int RunLauncherWindowUVE(const LauncherWindowDescUVE& desc,
+[[nodiscard]] int RunLauncherWindow(const LauncherWindowDesc& desc,
                                        const std::function<prism::Ref<prism::Widget>()>& buildRoot,
                                        const std::function<void()>& tick);
 
-void RequestLauncherCloseUVE();
+void RequestLauncherClose();
 
 } // namespace UVE::LauncherUI

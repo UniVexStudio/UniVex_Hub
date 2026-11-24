@@ -17,53 +17,53 @@
 namespace UVE::Setup {
 namespace {
 
-inline constexpr float kRailWidthUVE = 248.0F;
-inline constexpr float kRailPaddingUVE = 24.0F;
-inline constexpr float kLogoSizeUVE = 64.0F;
-inline constexpr float kBrandTopSpaceUVE = 12.0F;
-inline constexpr float kBrandBottomSpaceUVE = 16.0F;
-inline constexpr float kBrandLineSpacingUVE = 2.0F;
-inline constexpr float kPagePaddingUVE = 32.0F;
-inline constexpr float kSectionSpacingUVE = 14.0F;
-inline constexpr float kStepSpacingUVE = 2.0F;
-inline constexpr float kControlSpacingUVE = 8.0F;
-inline constexpr float kActionBarPaddingUVE = 16.0F;
-inline constexpr float kListIndentUVE = 12.0F;
+inline constexpr float kRailWidth = 248.0F;
+inline constexpr float kRailPadding = 24.0F;
+inline constexpr float kLogoSize = 64.0F;
+inline constexpr float kBrandTopSpace = 12.0F;
+inline constexpr float kBrandBottomSpace = 16.0F;
+inline constexpr float kBrandLineSpacing = 2.0F;
+inline constexpr float kPagePadding = 32.0F;
+inline constexpr float kSectionSpacing = 14.0F;
+inline constexpr float kStepSpacing = 2.0F;
+inline constexpr float kControlSpacing = 8.0F;
+inline constexpr float kActionBarPadding = 16.0F;
+inline constexpr float kListIndent = 12.0F;
 /// Share of the bar each stage has reached when it starts; unpacking takes most of the time.
-inline constexpr std::array<float, 4U> kStageProgressUVE{0.05F, 0.70F, 0.90F, 1.0F};
+inline constexpr std::array<float, 4U> kStageProgress{0.05F, 0.70F, 0.90F, 1.0F};
 
 /// Each step's name in the rail, per mode; an empty name is a step that mode skips. Steps that are
 /// shown are numbered in order.
-inline constexpr std::array<std::string_view, kSetupStepCountUVE> kInstallStepNamesUVE{"Welcome", "Location", "Install",
+inline constexpr std::array<std::string_view, kSetupStepCount> kInstallStepNames{"Welcome", "Location", "Install",
                                                                                          "Done"};
-inline constexpr std::array<std::string_view, kSetupStepCountUVE> kUninstallStepNamesUVE{"Confirm", "", "Remove", "Done"};
+inline constexpr std::array<std::string_view, kSetupStepCount> kUninstallStepNames{"Confirm", "", "Remove", "Done"};
 /// Space between a step's number and its name.
-inline constexpr std::string_view kStepNumberSeparatorUVE = "  ";
+inline constexpr std::string_view kStepNumberSeparator = "  ";
 /// Temporary copy of the payload while it is unpacked.
-inline constexpr std::string_view kPayloadScratchPrefixUVE = "univex-hub-setup-";
+inline constexpr std::string_view kPayloadScratchPrefix = "univex-hub-setup-";
 
-[[nodiscard]] prism::Ref<prism::Label> HeadingUVE(const std::string& text) {
+[[nodiscard]] prism::Ref<prism::Label> Heading(const std::string& text) {
     return prism::make<prism::Label>(text, prism::FontRole::Semibold);
 }
 
-[[nodiscard]] prism::Ref<prism::Label> ParagraphUVE(const std::string& text) {
+[[nodiscard]] prism::Ref<prism::Label> Paragraph(const std::string& text) {
     auto label = prism::make<prism::Label>(text);
     label->setColor(&prism::Theme::textDim);
     return label;
 }
 
-[[nodiscard]] std::string StageTextUVE(const SetupJobUVE::StageUVE stage, const SetupModeUVE mode) {
-    if (mode == SetupModeUVE::Uninstall) {
+[[nodiscard]] std::string StageText(const SetupJob::Stage stage, const SetupMode mode) {
+    if (mode == SetupMode::Uninstall) {
         return "Removing UniVex Hub...";
     }
     switch (stage) {
-    case SetupJobUVE::StageUVE::Unpacking:
+    case SetupJob::Stage::Unpacking:
         return "Unpacking UniVex Hub...";
-    case SetupJobUVE::StageUVE::Installing:
+    case SetupJob::Stage::Installing:
         return "Putting the files in place...";
-    case SetupJobUVE::StageUVE::Registering:
+    case SetupJob::Stage::Registering:
         return "Adding UniVex Hub to your applications...";
-    case SetupJobUVE::StageUVE::Finished:
+    case SetupJob::Stage::Finished:
         return "Finishing...";
     }
     return {};
@@ -73,96 +73,96 @@ inline constexpr std::string_view kPayloadScratchPrefixUVE = "univex-hub-setup-"
 
 // --- job ----------------------------------------------------------------------------------------
 
-SetupJobUVE::SetupJobUVE(SetupContextUVE context, const bool addToApplications) {
+SetupJob::SetupJob(SetupContext context, const bool addToApplications) {
     m_future = std::async(std::launch::async, [this, context = std::move(context), addToApplications]() mutable {
-        return RunUVE(std::move(context), addToApplications);
+        return Run(std::move(context), addToApplications);
     });
 }
 
-bool SetupJobUVE::IsFinishedUVE() const {
+bool SetupJob::IsFinished() const {
     return m_result.has_value() || m_future.wait_for(std::chrono::seconds::zero()) == std::future_status::ready;
 }
 
-Online::HubSetupResultUVE SetupJobUVE::ResultUVE() {
+Online::HubSetupResult SetupJob::Result() {
     if (!m_result.has_value()) {
         m_result = m_future.get();
     }
     return *m_result;
 }
 
-Online::HubSetupResultUVE SetupJobUVE::RunUVE(SetupContextUVE context, const bool addToApplications) {
-    if (context.mode == SetupModeUVE::Uninstall) {
-        m_stage.store(StageUVE::Installing);
-        Online::HubSetupResultUVE result = Online::UninstallHubUVE(context.installDirectory, context.entriesRoot);
-        m_stage.store(StageUVE::Finished);
+Online::HubSetupResult SetupJob::Run(SetupContext context, const bool addToApplications) {
+    if (context.mode == SetupMode::Uninstall) {
+        m_stage.store(Stage::Installing);
+        Online::HubSetupResult result = Online::UninstallHub(context.installDirectory, context.entriesRoot);
+        m_stage.store(Stage::Finished);
         return result;
     }
     if (!context.payload.has_value()) {
         return {false, "This setup program carries no files to install."};
     }
     const std::filesystem::path archive =
-        LauncherUI::UniqueTemporaryPathUVE(kPayloadScratchPrefixUVE, Online::kTarGzFileExtensionUVE);
+        LauncherUI::UniqueTemporaryPath(kPayloadScratchPrefix, Online::kTarGzFileExtension);
     const auto removeArchive = [&archive] {
         std::error_code ignored;
         std::filesystem::remove(archive, ignored);
     };
-    if (archive.empty() || !Online::ExtractSetupPayloadUVE(context.setupExecutable, *context.payload, archive)) {
+    if (archive.empty() || !Online::ExtractSetupPayload(context.setupExecutable, *context.payload, archive)) {
         removeArchive();
         return {false, "This setup program is damaged; download it again."};
     }
-    m_stage.store(StageUVE::Installing);
-    Online::HubSetupResultUVE installed =
-        Online::InstallHubUVE(archive, context.installDirectory, context.setupExecutable);
+    m_stage.store(Stage::Installing);
+    Online::HubSetupResult installed =
+        Online::InstallHub(archive, context.installDirectory, context.setupExecutable);
     removeArchive();
     if (!installed.succeeded) {
         return installed;
     }
     if (addToApplications) {
-        m_stage.store(StageUVE::Registering);
-        const Online::HubSetupResultUVE registered =
-            Online::RegisterHubWithDesktopUVE(context.installDirectory, context.version, context.entriesRoot);
+        m_stage.store(Stage::Registering);
+        const Online::HubSetupResult registered =
+            Online::RegisterHubWithDesktop(context.installDirectory, context.version, context.entriesRoot);
         if (!registered.succeeded) {
             installed.message += " " + registered.message;
         }
     }
-    m_stage.store(StageUVE::Finished);
+    m_stage.store(Stage::Finished);
     return installed;
 }
 
 // --- window -------------------------------------------------------------------------------------
 
-SetupWindowUVE::SetupWindowUVE(SetupContextUVE context) : m_context(std::move(context)) {
+SetupWindow::SetupWindow(SetupContext context) : m_context(std::move(context)) {
     std::error_code error;
-    m_existingInstall = std::filesystem::is_regular_file(Online::HubExecutableInUVE(m_context.installDirectory), error);
+    m_existingInstall = std::filesystem::is_regular_file(Online::HubExecutableIn(m_context.installDirectory), error);
 }
 
-prism::Ref<prism::Widget> SetupWindowUVE::BuildUVE() {
+prism::Ref<prism::Widget> SetupWindow::Build() {
     m_pages = prism::make<prism::StackSwitcher>();
-    m_pages->addPage(BuildWelcomePageUVE());
-    m_pages->addPage(BuildLocationPageUVE());
-    m_pages->addPage(BuildInstallingPageUVE());
-    m_pages->addPage(BuildDonePageUVE());
+    m_pages->addPage(BuildWelcomePage());
+    m_pages->addPage(BuildLocationPage());
+    m_pages->addPage(BuildInstallingPage());
+    m_pages->addPage(BuildDonePage());
 
-    auto actions = prism::hbox(kControlSpacingUVE);
-    actions->setPadding(prism::Margin(kActionBarPaddingUVE));
+    auto actions = prism::hbox(kControlSpacing);
+    actions->setPadding(prism::Margin(kActionBarPadding));
     m_cancel = prism::make<prism::Button>("Cancel");
-    m_cancel->onClick = [] { LauncherUI::RequestLauncherCloseUVE(); };
+    m_cancel->onClick = [] { LauncherUI::RequestLauncherClose(); };
     actions->add(m_cancel);
     actions->add(prism::make<prism::Spacer>(), prism::Slot{1.0F});
     m_back = prism::make<prism::Button>("Back");
-    m_back->onClick = [this] { ShowStepUVE(SetupStepUVE::Welcome); };
+    m_back->onClick = [this] { ShowStep(SetupStep::Welcome); };
     actions->add(m_back);
     m_next = prism::make<prism::Button>("Next", prism::Icon::None, prism::ButtonStyle::Primary);
     m_next->onClick = [this] {
-        if (m_step == SetupStepUVE::Welcome && m_context.mode == SetupModeUVE::Install) {
-            ShowStepUVE(SetupStepUVE::Location);
-        } else if (m_step == SetupStepUVE::Done) {
-            if (m_outcome.has_value() && m_outcome->succeeded && m_context.mode == SetupModeUVE::Install) {
-                LaunchHubUVE();
+        if (m_step == SetupStep::Welcome && m_context.mode == SetupMode::Install) {
+            ShowStep(SetupStep::Location);
+        } else if (m_step == SetupStep::Done) {
+            if (m_outcome.has_value() && m_outcome->succeeded && m_context.mode == SetupMode::Install) {
+                LaunchHub();
             }
-            LauncherUI::RequestLauncherCloseUVE();
+            LauncherUI::RequestLauncherClose();
         } else {
-            StartUVE();
+            Start();
         }
     };
     actions->add(m_next);
@@ -173,23 +173,23 @@ prism::Ref<prism::Widget> SetupWindowUVE::BuildUVE() {
     content->add(actions);
 
     auto root = prism::hbox();
-    root->add(BuildRailUVE());
+    root->add(BuildRail());
     root->add(prism::make<prism::Separator>(prism::Orientation::Vertical));
     root->add(content, prism::Slot{1.0F});
     auto window = prism::make<prism::Border>();
     window->setBackground(&prism::Theme::window).setChild(root);
 
-    ShowStepUVE(SetupStepUVE::Welcome);
+    ShowStep(SetupStep::Welcome);
     return window;
 }
 
-prism::Ref<prism::Widget> SetupWindowUVE::BuildRailUVE() {
-    auto rail = prism::vbox(kSectionSpacingUVE);
-    rail->setPadding(prism::Margin(kRailPaddingUVE));
+prism::Ref<prism::Widget> SetupWindow::BuildRail() {
+    auto rail = prism::vbox(kSectionSpacing);
+    rail->setPadding(prism::Margin(kRailPadding));
     // The brand block sits centred in the rail, above the steps.
-    rail->add(prism::make<prism::Spacer>(0.0F, kBrandTopSpaceUVE));
-    rail->add(prism::make<LauncherUI::BrandMarkUVE>(kLogoSizeUVE), prism::Slot{0.0F, {}, prism::HAlign::Center});
-    auto name = prism::vbox(kBrandLineSpacingUVE);
+    rail->add(prism::make<prism::Spacer>(0.0F, kBrandTopSpace));
+    rail->add(prism::make<LauncherUI::BrandMark>(kLogoSize), prism::Slot{0.0F, {}, prism::HAlign::Center});
+    auto name = prism::vbox(kBrandLineSpacing);
     auto product = prism::make<prism::Label>("UniVex Hub", prism::FontRole::Semibold);
     product->setAlign(prism::HAlign::Center);
     name->add(product, prism::Slot{0.0F, {}, prism::HAlign::Fill});
@@ -198,16 +198,16 @@ prism::Ref<prism::Widget> SetupWindowUVE::BuildRailUVE() {
     version->setAlign(prism::HAlign::Center);
     name->add(version, prism::Slot{0.0F, {}, prism::HAlign::Fill});
     rail->add(name, prism::Slot{0.0F, {}, prism::HAlign::Fill});
-    rail->add(prism::make<prism::Spacer>(0.0F, kBrandBottomSpaceUVE));
+    rail->add(prism::make<prism::Spacer>(0.0F, kBrandBottomSpace));
 
     // The steps are a real sequence, so they are numbered.
-    auto steps = prism::vbox(kStepSpacingUVE);
-    const auto& names = m_context.mode == SetupModeUVE::Install ? kInstallStepNamesUVE : kUninstallStepNamesUVE;
+    auto steps = prism::vbox(kStepSpacing);
+    const auto& names = m_context.mode == SetupMode::Install ? kInstallStepNames : kUninstallStepNames;
     std::size_t number = 0U;
     for (const std::string_view name : names) {
         const std::string label =
-            name.empty() ? std::string{} : std::to_string(++number) + std::string(kStepNumberSeparatorUVE) + std::string(name);
-        auto item = prism::make<LauncherUI::NavItemUVE>(label, prism::Icon::None);
+            name.empty() ? std::string{} : std::to_string(++number) + std::string(kStepNumberSeparator) + std::string(name);
+        auto item = prism::make<LauncherUI::NavItem>(label, prism::Icon::None);
         item->setEnabled(false);
         item->setVisible(!name.empty());
         m_stepItems.push_back(item);
@@ -217,33 +217,33 @@ prism::Ref<prism::Widget> SetupWindowUVE::BuildRailUVE() {
 
     auto frame = prism::make<prism::Border>();
     frame->setBackground(&prism::Theme::panel).setChild(rail);
-    frame->setFixedWidth(kRailWidthUVE);
+    frame->setFixedWidth(kRailWidth);
     return frame;
 }
 
-prism::Ref<prism::Widget> SetupWindowUVE::BuildWelcomePageUVE() {
-    auto page = prism::vbox(kSectionSpacingUVE);
-    page->setPadding(prism::Margin(kPagePaddingUVE));
-    if (m_context.mode == SetupModeUVE::Uninstall) {
-        page->add(HeadingUVE("Remove UniVex Hub"));
-        page->add(ParagraphUVE("UniVex Hub will be removed from " + m_context.installDirectory.string() + "."));
-        page->add(ParagraphUVE("Your projects, your project list and the engines you downloaded stay."));
+prism::Ref<prism::Widget> SetupWindow::BuildWelcomePage() {
+    auto page = prism::vbox(kSectionSpacing);
+    page->setPadding(prism::Margin(kPagePadding));
+    if (m_context.mode == SetupMode::Uninstall) {
+        page->add(Heading("Remove UniVex Hub"));
+        page->add(Paragraph("UniVex Hub will be removed from " + m_context.installDirectory.string() + "."));
+        page->add(Paragraph("Your projects, your project list and the engines you downloaded stay."));
         return page;
     }
-    page->add(HeadingUVE(m_existingInstall ? "Update UniVex Hub" : "Install UniVex Hub"));
-    page->add(ParagraphUVE("The Hub creates and opens your projects and downloads the engine versions they use."));
-    page->add(prism::make<prism::Spacer>(0.0F, kControlSpacingUVE));
+    page->add(Heading(m_existingInstall ? "Update UniVex Hub" : "Install UniVex Hub"));
+    page->add(Paragraph("The Hub creates and opens your projects and downloads the engine versions they use."));
+    page->add(prism::make<prism::Spacer>(0.0F, kControlSpacing));
     page->add(prism::make<prism::Label>("What is included", prism::FontRole::Medium));
     for (const std::string& item : {"UniVex Hub " + m_context.version, std::string("The project templates"),
                                     std::string("Engines are downloaded from the Hub when you need them")}) {
         auto line = prism::make<prism::Label>(item);
-        line->setPadding(prism::Margin(kListIndentUVE, 0.0F, 0.0F, 0.0F));
+        line->setPadding(prism::Margin(kListIndent, 0.0F, 0.0F, 0.0F));
         page->add(line);
     }
-    page->add(prism::make<prism::Spacer>(0.0F, kControlSpacingUVE));
-    page->add(ParagraphUVE("It installs for you only; no administrator rights are needed."));
+    page->add(prism::make<prism::Spacer>(0.0F, kControlSpacing));
+    page->add(Paragraph("It installs for you only; no administrator rights are needed."));
     if (m_existingInstall) {
-        page->add(ParagraphUVE("The Hub already installed in " + m_context.installDirectory.string() +
+        page->add(Paragraph("The Hub already installed in " + m_context.installDirectory.string() +
                                " is replaced. Your projects are not touched."));
     }
     if (!m_context.payload.has_value()) {
@@ -254,21 +254,21 @@ prism::Ref<prism::Widget> SetupWindowUVE::BuildWelcomePageUVE() {
     return page;
 }
 
-prism::Ref<prism::Widget> SetupWindowUVE::BuildLocationPageUVE() {
-    auto page = prism::vbox(kSectionSpacingUVE);
-    page->setPadding(prism::Margin(kPagePaddingUVE));
-    page->add(HeadingUVE("Where should UniVex Hub go?"));
-    page->add(ParagraphUVE("The default folder is yours alone. Projects are saved wherever you choose later."));
+prism::Ref<prism::Widget> SetupWindow::BuildLocationPage() {
+    auto page = prism::vbox(kSectionSpacing);
+    page->setPadding(prism::Margin(kPagePadding));
+    page->add(Heading("Where should UniVex Hub go?"));
+    page->add(Paragraph("The default folder is yours alone. Projects are saved wherever you choose later."));
 
-    auto row = prism::hbox(kControlSpacingUVE);
+    auto row = prism::hbox(kControlSpacing);
     m_location = prism::make<prism::TextInput>(m_context.installDirectory.string());
     m_location->onChanged = [this](const std::string&) { m_locationProblem->setText(""); };
     row->add(m_location, prism::Slot{1.0F});
     auto browse = prism::make<prism::Button>("Browse", prism::Icon::FolderOpen);
     browse->onClick = [this] {
-        LauncherUI::ShowFolderPickerUVE("Install UniVex Hub in", std::filesystem::path(m_location->text()).parent_path(),
+        LauncherUI::ShowFolderPicker("Install UniVex Hub in", std::filesystem::path(m_location->text()).parent_path(),
                                         [this](const std::filesystem::path& chosen) {
-                                            m_location->setText((chosen / Online::kHubInstallFolderNameUVE).string());
+                                            m_location->setText((chosen / Online::kHubInstallFolderName).string());
                                         });
     };
     row->add(browse);
@@ -281,7 +281,7 @@ prism::Ref<prism::Widget> SetupWindowUVE::BuildLocationPageUVE() {
 #endif
     page->add(m_addToApplications, prism::Slot{0.0F, {}, prism::HAlign::Left});
     if (m_context.payload.has_value()) {
-        page->add(ParagraphUVE("Download size " + LauncherUI::FormatByteSizeUVE(m_context.payload->size) +
+        page->add(Paragraph("Download size " + LauncherUI::FormatByteSize(m_context.payload->size) +
                                "; the installed files take a few times that."));
     }
     m_locationProblem = prism::make<prism::Label>("", prism::FontRole::Small);
@@ -290,62 +290,62 @@ prism::Ref<prism::Widget> SetupWindowUVE::BuildLocationPageUVE() {
     return page;
 }
 
-prism::Ref<prism::Widget> SetupWindowUVE::BuildInstallingPageUVE() {
-    auto page = prism::vbox(kSectionSpacingUVE);
-    page->setPadding(prism::Margin(kPagePaddingUVE));
-    page->add(HeadingUVE(m_context.mode == SetupModeUVE::Install ? "Installing" : "Removing"));
-    m_stageLabel = ParagraphUVE("");
+prism::Ref<prism::Widget> SetupWindow::BuildInstallingPage() {
+    auto page = prism::vbox(kSectionSpacing);
+    page->setPadding(prism::Margin(kPagePadding));
+    page->add(Heading(m_context.mode == SetupMode::Install ? "Installing" : "Removing"));
+    m_stageLabel = Paragraph("");
     page->add(m_stageLabel);
     m_progress = prism::make<prism::ProgressBar>();
     page->add(m_progress, prism::Slot{0.0F, {}, prism::HAlign::Fill});
     return page;
 }
 
-prism::Ref<prism::Widget> SetupWindowUVE::BuildDonePageUVE() {
-    auto page = prism::vbox(kSectionSpacingUVE);
-    page->setPadding(prism::Margin(kPagePaddingUVE));
-    m_doneHeading = HeadingUVE("");
+prism::Ref<prism::Widget> SetupWindow::BuildDonePage() {
+    auto page = prism::vbox(kSectionSpacing);
+    page->setPadding(prism::Margin(kPagePadding));
+    m_doneHeading = Heading("");
     page->add(m_doneHeading);
-    m_doneMessage = ParagraphUVE("");
+    m_doneMessage = Paragraph("");
     page->add(m_doneMessage);
     return page;
 }
 
-void SetupWindowUVE::ShowStepUVE(const SetupStepUVE step) {
+void SetupWindow::ShowStep(const SetupStep step) {
     m_step = step;
     m_pages->setActiveIndex(static_cast<int>(step));
     for (std::size_t index = 0U; index < m_stepItems.size(); ++index) {
-        m_stepItems[index]->SetActiveUVE(static_cast<int>(index) == static_cast<int>(step));
+        m_stepItems[index]->SetActive(static_cast<int>(index) == static_cast<int>(step));
     }
-    RefreshActionsUVE();
+    RefreshActions();
 }
 
-void SetupWindowUVE::RefreshActionsUVE() {
-    const bool install = m_context.mode == SetupModeUVE::Install;
-    m_back->setVisible(install && m_step == SetupStepUVE::Location);
-    m_cancel->setVisible(m_step == SetupStepUVE::Welcome || m_step == SetupStepUVE::Location);
-    m_next->setVisible(m_step != SetupStepUVE::Installing);
+void SetupWindow::RefreshActions() {
+    const bool install = m_context.mode == SetupMode::Install;
+    m_back->setVisible(install && m_step == SetupStep::Location);
+    m_cancel->setVisible(m_step == SetupStep::Welcome || m_step == SetupStep::Location);
+    m_next->setVisible(m_step != SetupStep::Installing);
     switch (m_step) {
-    case SetupStepUVE::Welcome:
+    case SetupStep::Welcome:
         m_next->setText(install ? "Next" : "Remove");
         m_next->setEnabled(!install || m_context.payload.has_value());
         break;
-    case SetupStepUVE::Location:
+    case SetupStep::Location:
         m_next->setText(m_existingInstall ? "Update" : "Install");
         m_next->setEnabled(true);
         break;
-    case SetupStepUVE::Installing:
+    case SetupStep::Installing:
         break;
-    case SetupStepUVE::Done:
+    case SetupStep::Done:
         m_next->setText(install && m_outcome.has_value() && m_outcome->succeeded ? "Open UniVex Hub" : "Close");
         m_next->setEnabled(true);
         break;
     }
 }
 
-void SetupWindowUVE::StartUVE() {
+void SetupWindow::Start() {
     bool addToApplications = true;
-    if (m_context.mode == SetupModeUVE::Install) {
+    if (m_context.mode == SetupMode::Install) {
         const std::filesystem::path chosen = m_location->text();
         if (!chosen.is_absolute() || chosen.filename().empty()) {
             m_locationProblem->setText("Enter a full folder path, for example " +
@@ -355,23 +355,23 @@ void SetupWindowUVE::StartUVE() {
         m_context.installDirectory = chosen;
         addToApplications = m_addToApplications->checked();
     }
-    m_job = std::make_unique<SetupJobUVE>(m_context, addToApplications);
-    ShowStepUVE(SetupStepUVE::Installing);
+    m_job = std::make_unique<SetupJob>(m_context, addToApplications);
+    ShowStep(SetupStep::Installing);
 }
 
-void SetupWindowUVE::TickUVE() {
+void SetupWindow::Tick() {
     if (m_job == nullptr) {
         return;
     }
-    const SetupJobUVE::StageUVE stage = m_job->CurrentStageUVE();
-    m_progress->setValue(kStageProgressUVE[static_cast<std::size_t>(stage)]);
-    m_stageLabel->setText(StageTextUVE(stage, m_context.mode));
-    if (!m_job->IsFinishedUVE()) {
+    const SetupJob::Stage stage = m_job->CurrentStage();
+    m_progress->setValue(kStageProgress[static_cast<std::size_t>(stage)]);
+    m_stageLabel->setText(StageText(stage, m_context.mode));
+    if (!m_job->IsFinished()) {
         return;
     }
-    m_outcome = m_job->ResultUVE();
+    m_outcome = m_job->Result();
     m_job.reset();
-    const bool install = m_context.mode == SetupModeUVE::Install;
+    const bool install = m_context.mode == SetupMode::Install;
     if (m_outcome->succeeded) {
         m_doneHeading->setText(install ? "UniVex Hub is ready" : "UniVex Hub was removed");
         m_doneMessage->setText(m_outcome->message);
@@ -380,12 +380,12 @@ void SetupWindowUVE::TickUVE() {
         m_doneMessage->setText(m_outcome->message);
         m_doneMessage->setColor(&prism::Theme::error);
     }
-    ShowStepUVE(SetupStepUVE::Done);
+    ShowStep(SetupStep::Done);
 }
 
-void SetupWindowUVE::LaunchHubUVE() {
-    static_cast<void>(Platform::LaunchDetachedProcessUVE(
-        {Online::HubExecutableInUVE(m_context.installDirectory), {}, m_context.installDirectory}));
+void SetupWindow::LaunchHub() {
+    static_cast<void>(Platform::LaunchDetachedProcess(
+        {Online::HubExecutableIn(m_context.installDirectory), {}, m_context.installDirectory}));
 }
 
 } // namespace UVE::Setup

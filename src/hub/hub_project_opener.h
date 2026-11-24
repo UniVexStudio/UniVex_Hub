@@ -13,7 +13,7 @@
 
 namespace UVE::Hub {
 
-struct ProjectOpenResultUVE final {
+struct ProjectOpenResult final {
     bool launched = false;
     std::string message;
 };
@@ -22,14 +22,14 @@ struct ProjectOpenResultUVE final {
 /// matching the project, and records it as opened. `registryOverride` is handed to the editor when
 /// the Hub itself runs on an isolated registry. Used by the Hub window and by opening a project file
 /// directly (double-clicking a .uvproject).
-[[nodiscard]] ProjectOpenResultUVE OpenProjectInEngineUVE(const std::filesystem::path& projectFile,
-                                                          const std::vector<Online::InstalledEngineUVE>& engines,
+[[nodiscard]] ProjectOpenResult OpenProjectInEngine(const std::filesystem::path& projectFile,
+                                                          const std::vector<Online::InstalledEngine>& engines,
                                                           const std::filesystem::path& registryFile,
                                                           const std::filesystem::path& registryOverride);
 
 /// Android runs no second program: opening a project there closes the Hub's window and leaves the
 /// editor to start here, which the app (hub_main.cpp) takes once the Hub's loop has ended and runs
 /// in-process from the engine's editor library. Empty on other platforms, and once taken.
-[[nodiscard]] std::optional<Platform::ProcessLaunchDescUVE> TakePendingEditorLaunchUVE();
+[[nodiscard]] std::optional<Platform::ProcessLaunchDesc> TakePendingEditorLaunch();
 
 } // namespace UVE::Hub

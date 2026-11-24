@@ -127,7 +127,11 @@ def main() -> int:
             shader_logs += "\n" + adb("shell", f"run-as {PACKAGE} cat files/uve_editor.log")
         except (subprocess.SubprocessError, OSError):
             pass
-        shader_errors = [line.strip() for line in shader_logs.splitlines() if "CreateShaderUVE compilation failed" in line]
+        shader_errors = [
+            line.strip()
+            for line in shader_logs.splitlines()
+            if "CreateShader compilation failed" in line or "CreateShaderUVE compilation failed" in line
+        ]
         if shader_errors:
             sample = " | ".join(shader_errors[:5])
             raise RuntimeError(f"Android GLES 3.0 shader compilation failed ({len(shader_errors)} error(s)): {sample}")

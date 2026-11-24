@@ -9,24 +9,24 @@
 
 namespace UVE::Logging {
 
-enum class LogLevelUVE { Info, Warning, Error, Fatal };
+enum class LogLevel { Info, Warning, Error, Fatal };
 
-void SetLogFileUVE(const std::filesystem::path& path);
-void CloseLogFileUVE();
-void WriteLogLineUVE(LogLevelUVE level, std::string_view message);
+void SetLogFile(const std::filesystem::path& path);
+void CloseLogFile();
+void WriteLogLine(LogLevel level, std::string_view message);
 
 template <typename... Args>
-void LogFormatUVE(const LogLevelUVE level, std::format_string<Args...> fmt, Args&&... args) {
-    WriteLogLineUVE(level, std::format(fmt, std::forward<Args>(args)...));
+void LogFormat(const LogLevel level, std::format_string<Args...> fmt, Args&&... args) {
+    WriteLogLine(level, std::format(fmt, std::forward<Args>(args)...));
 }
 
-inline void LogFormatUVE(const LogLevelUVE level, const std::string_view message) {
-    WriteLogLineUVE(level, message);
+inline void LogFormat(const LogLevel level, const std::string_view message) {
+    WriteLogLine(level, message);
 }
 
 } // namespace UVE::Logging
 
-#define UVE_INFO(...) ::UVE::Logging::LogFormatUVE(::UVE::Logging::LogLevelUVE::Info, __VA_ARGS__)
-#define UVE_WARNING(...) ::UVE::Logging::LogFormatUVE(::UVE::Logging::LogLevelUVE::Warning, __VA_ARGS__)
-#define UVE_ERROR(...) ::UVE::Logging::LogFormatUVE(::UVE::Logging::LogLevelUVE::Error, __VA_ARGS__)
-#define UVE_FATAL(...) ::UVE::Logging::LogFormatUVE(::UVE::Logging::LogLevelUVE::Fatal, __VA_ARGS__)
+#define UVE_INFO(...) ::UVE::Logging::LogFormat(::UVE::Logging::LogLevel::Info, __VA_ARGS__)
+#define UVE_WARNING(...) ::UVE::Logging::LogFormat(::UVE::Logging::LogLevel::Warning, __VA_ARGS__)
+#define UVE_ERROR(...) ::UVE::Logging::LogFormat(::UVE::Logging::LogLevel::Error, __VA_ARGS__)
+#define UVE_FATAL(...) ::UVE::Logging::LogFormat(::UVE::Logging::LogLevel::Fatal, __VA_ARGS__)

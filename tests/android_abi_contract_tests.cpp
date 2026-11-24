@@ -8,7 +8,10 @@
 #include "univex_android_editor_abi.h"
 
 TEST(AndroidAbiContractTest, EntryPointSymbolMatchesEngineInstallContract) {
-    EXPECT_EQ(std::string_view(UVE_ANDROID_EDITOR_ENTRY_SYMBOL), UVE::Pack::kEditorAndroidEntryPointUVE);
-    EXPECT_EQ(UVE_ANDROID_EDITOR_ABI_VERSION, 1U);
-    EXPECT_EQ(std::string_view(UVE_ANDROID_EDITOR_ABI_VERSION_SYMBOL), "UveEditorAbiVersionUVE");
+    EXPECT_EQ(std::string_view(UVE_ANDROID_EDITOR_ENTRY_SYMBOL), UVE::Pack::kEditorAndroidEntryPoint);
+    EXPECT_EQ(UVE_ANDROID_EDITOR_ABI_VERSION, 2U);
+    EXPECT_EQ(std::string_view(UVE_ANDROID_EDITOR_ABI_VERSION_SYMBOL), "UveEditorAbiVersion");
+    EXPECT_EQ(UVE_ANDROID_EDITOR_ABI_VERSION_V1, 1U);
+    EXPECT_EQ(std::string_view(UVE_ANDROID_EDITOR_ENTRY_SYMBOL_V1), "UveEditorRunUVE");
+    EXPECT_EQ(std::string_view(UVE_ANDROID_EDITOR_ABI_VERSION_SYMBOL_V1), "UveEditorAbiVersionUVE");
 }

@@ -15,63 +15,63 @@ namespace UVE::Hub {
 namespace {
 
 /// The editor launch Android carries out after the Hub's window closes.
-std::optional<Platform::ProcessLaunchDescUVE> g_pendingEditorLaunchUVE;
+std::optional<Platform::ProcessLaunchDesc> g_pendingEditorLaunch;
 
 } // namespace
 
-std::optional<Platform::ProcessLaunchDescUVE> TakePendingEditorLaunchUVE() {
-    return std::exchange(g_pendingEditorLaunchUVE, std::nullopt);
+std::optional<Platform::ProcessLaunchDesc> TakePendingEditorLaunch() {
+    return std::exchange(g_pendingEditorLaunch, std::nullopt);
 }
 
-ProjectOpenResultUVE OpenProjectInEngineUVE(const std::filesystem::path& projectFile,
-                                            const std::vector<Online::InstalledEngineUVE>& engines,
+ProjectOpenResult OpenProjectInEngine(const std::filesystem::path& projectFile,
+                                            const std::vector<Online::InstalledEngine>& engines,
                                             const std::filesystem::path& registryFile,
                                             const std::filesystem::path& registryOverride) {
     if (projectFile.empty()) {
         return {false, "Enter the path of a project file to open."};
     }
-    const Platform::EditorProjectPackageLoadResultUVE manifest = Platform::EditorProjectPackageCodecUVE::LoadUVE(projectFile);
-    if (!manifest.IsAcceptedUVE()) {
+    const Platform::EditorProjectPackageLoadResult manifest = Platform::EditorProjectPackageCodec::Load(projectFile);
+    if (!manifest.IsAccepted()) {
         return {false, "Cannot open " + projectFile.string() + ": " + manifest.result.message};
     }
-    const Platform::EditorProjectPackageUVE& package = *manifest.package;
+    const Platform::EditorProjectPackage& package = *manifest.package;
 
-    Pack::ProjectRegistryUVE registry;
-    const bool registryLoaded = registry.LoadUVE(registryFile).IsAppliedUVE();
-    const Pack::ProjectRegistryEntryUVE* const entry = registryLoaded ? registry.FindUVE(projectFile) : nullptr;
-    const Online::InstalledEngineUVE* const engine = Online::ChooseEngineForProjectUVE(
+    Pack::ProjectRegistry registry;
+    const bool registryLoaded = registry.Load(registryFile).IsApplied();
+    const Pack::ProjectRegistryEntry* const entry = registryLoaded ? registry.Find(projectFile) : nullptr;
+    const Online::InstalledEngine* const engine = Online::ChooseEngineForProject(
         engines, package.engineVersion, entry != nullptr ? entry->engineChoice : std::string{});
 
     // Listed either way, so a project that cannot open yet still shows up with what it needs.
     if (registryLoaded) {
         const auto now =
             std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        registry.RecordOpenedUVE(projectFile, package.displayName, package.engineVersion, now);
-        static_cast<void>(registry.SaveUVE(registryFile));
+        registry.RecordOpened(projectFile, package.displayName, package.engineVersion, now);
+        static_cast<void>(registry.Save(registryFile));
     }
     if (engine == nullptr) {
-        return {false, package.displayName + " needs engine " + Pack::FormatProjectVersionUVE(package.engineVersion) +
+        return {false, package.displayName + " needs engine " + Pack::FormatProjectVersion(package.engineVersion) +
                            ", which is not downloaded. Download it on the Engines page."};
     }
-    const Pack::ProjectCompatibilityUVE compatibility =
-        Pack::EvaluateProjectCompatibilityUVE(package.engineVersion, engine->install.version);
-    if (!compatibility.CanOpenUVE()) {
+    const Pack::ProjectCompatibility compatibility =
+        Pack::EvaluateProjectCompatibility(package.engineVersion, engine->install.version);
+    if (!compatibility.CanOpen()) {
         return {false, compatibility.message};
     }
-    Platform::ProcessLaunchDescUVE launch{
+    Platform::ProcessLaunchDesc launch{
         engine->install.editorExecutable,
-        Pack::MakeEditorLaunchArgumentsUVE(Pack::ProjectRegistryUVE::NormalizeProjectFileUVE(projectFile), registryOverride),
+        Pack::MakeEditorLaunchArguments(Pack::ProjectRegistry::NormalizeProjectFile(projectFile), registryOverride),
         projectFile.parent_path()};
 #if defined(__ANDROID__)
-    g_pendingEditorLaunchUVE = std::move(launch);
-    LauncherUI::RequestLauncherCloseUVE();
+    g_pendingEditorLaunch = std::move(launch);
+    LauncherUI::RequestLauncherClose();
 #else
-    const Platform::ProcessLaunchResultUVE launched = Platform::LaunchDetachedProcessUVE(launch);
+    const Platform::ProcessLaunchResult launched = Platform::LaunchDetachedProcess(launch);
     if (!launched.launched) {
         return {false, launched.message};
     }
 #endif
-    return {true, "Opening " + package.displayName + " with engine " + engine->install.version.ToStringUVE() + "..."};
+    return {true, "Opening " + package.displayName + " with engine " + engine->install.version.ToString() + "..."};
 }
 
 } // namespace UVE::Hub
