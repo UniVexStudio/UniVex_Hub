@@ -56,7 +56,8 @@ std::vector<ProjectListRowUVE> BuildProjectListUVE(const std::vector<ProjectRegi
     rows.reserve(entries.size());
     for (const ProjectRegistryEntryUVE& entry : entries) {
         if (!needle.empty() && LowerUVE(entry.displayName).find(needle) == std::string::npos &&
-            LowerUVE(entry.projectFile.string()).find(needle) == std::string::npos) {
+            LowerUVE(entry.projectFile.string()).find(needle) == std::string::npos &&
+            LowerUVE(entry.projectFile.generic_string()).find(needle) == std::string::npos) {
             continue;
         }
         ProjectListRowUVE row;

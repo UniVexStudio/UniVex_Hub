@@ -308,6 +308,11 @@ HubSetupResultUVE RegisterHubWithDesktopUVE(const std::filesystem::path& install
     if (startMenu.empty()) {
         return {false, "The Start menu folder is unavailable."};
     }
+    std::error_code dirError;
+    std::filesystem::create_directories(startMenu, dirError);
+    if (dirError) {
+        return {false, "Unable to prepare the Start menu folder: " + dirError.message()};
+    }
     const HRESULT initialized = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     IShellLinkW* link = nullptr;
     bool shortcutMade = false;

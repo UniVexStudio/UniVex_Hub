@@ -42,6 +42,7 @@ if(ANDROID)
     endif()
     add_library(hub_glfw_headers INTERFACE)
     target_include_directories(hub_glfw_headers INTERFACE "${glfw_SOURCE_DIR}/include")
+    target_compile_definitions(hub_glfw_headers INTERFACE GLFW_INCLUDE_NONE)
 
     # FreeType built statically for Android with optional third-party codecs disabled.
     FetchContent_Declare(
