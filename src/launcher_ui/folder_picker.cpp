@@ -65,11 +65,13 @@ struct FolderPickerState final {
     prism::Ref<prism::WrapBox> breadcrumbs;
     prism::Ref<prism::Box> folders;
     prism::Ref<prism::Label> problem;
+    prism::Ref<prism::Label> storageNotice;
     prism::Ref<prism::TextInput> newFolder;
     prism::Ref<prism::Button> grantButton;
     int permissionTimerId = 0;
-    /// File mode: the name endings that are listed, and the file selected so far. Empty in folder mode.
+    /// File / project mode: file endings listed alongside folders, and the file selected so far.
     std::vector<std::string> fileSuffixes;
+    bool tagProjectFolders = false;
     std::optional<std::filesystem::path> selectedFile;
     std::vector<prism::Ref<NavItem>> fileRows;
 };
@@ -90,6 +92,12 @@ void SortByName(std::vector<std::filesystem::path>& paths) {
     });
 }
 
+[[nodiscard]] bool IsProjectManifestEntry(const std::filesystem::path& entryPath) {
+    const std::string name = Lowercase(entryPath.filename().string());
+    const std::string ext = Lowercase(entryPath.extension().string());
+    return ext == ".uvproject" || name == ".uvproject" || ext == ".uveditor";
+}
+
 [[nodiscard]] bool FolderContainsProjectFile(const std::filesystem::path& directory) {
     std::error_code error;
     std::filesystem::directory_iterator iterator(directory, std::filesystem::directory_options::skip_permission_denied,
@@ -99,13 +107,14 @@ void SortByName(std::vector<std::filesystem::path>& paths) {
     }
     int checked = 0;
     for (const std::filesystem::directory_entry& entry : iterator) {
-        if (++checked > 64) {
+        if (++checked > 512) {
             break;
         }
-        if (!entry.is_regular_file(error)) {
+        std::error_code entryError;
+        if (!entry.is_regular_file(entryError) || entryError) {
             continue;
         }
-        if (Lowercase(entry.path().extension().string()) == ".uvproject") {
+        if (IsProjectManifestEntry(entry.path())) {
             return true;
         }
     }
@@ -283,10 +292,10 @@ void ShowFolder(const std::shared_ptr<FolderPickerState>& state, const std::file
     const std::vector<std::filesystem::path> files =
         pickFiles ? ListPickableFiles(state->current, state->fileSuffixes) : std::vector<std::filesystem::path>{};
     if (children.empty() && files.empty()) {
-        const bool needsStorage = !readable && g_hasStorageAccess && !g_hasStorageAccess();
+        const bool needsStorage = g_hasStorageAccess && !g_hasStorageAccess();
         const char* message = nullptr;
         if (needsStorage) {
-            message = "Storage access is required here. Tap 'Allow Storage' above to browse Documents & Downloads.";
+            message = "Storage access is off. Tap 'Allow Storage' above so Android shows .uvproject files here.";
         } else if (!readable) {
             message = "This folder cannot be read. Choose another place above.";
         } else if (pickFiles) {
@@ -301,33 +310,48 @@ void ShowFolder(const std::shared_ptr<FolderPickerState>& state, const std::file
         emptyPad->add(empty);
         state->folders->add(emptyPad);
     }
-    for (const std::filesystem::path& child : children) {
-        const bool hasProject = !pickFiles && FolderContainsProjectFile(child);
-        const std::string label =
-            hasProject ? (child.filename().string() + "  [Project]") : child.filename().string();
-        auto row = prism::make<NavItem>(label, hasProject ? prism::Icon::FolderOpen : prism::Icon::Folder);
-        const std::weak_ptr<FolderPickerState> weak = state;
-        row->onActivate = [weak, child] {
-            if (const std::shared_ptr<FolderPickerState> owner = weak.lock()) {
-                ShowFolder(owner, child);
-            }
-        };
-        state->folders->add(row, prism::Slot{0.0F, {}, prism::HAlign::Fill});
-    }
-    for (const std::filesystem::path& file : files) {
-        auto row = prism::make<NavItem>(file.filename().string(), prism::Icon::File);
-        const std::weak_ptr<FolderPickerState> weak = state;
-        NavItem* const self = row.get();
-        row->onActivate = [weak, file, self] {
-            if (const std::shared_ptr<FolderPickerState> owner = weak.lock()) {
-                owner->selectedFile = file;
-                for (const prism::Ref<NavItem>& other : owner->fileRows) {
-                    other->SetActive(other.get() == self);
+    const auto addFileRows = [&] {
+        for (const std::filesystem::path& file : files) {
+            auto row = prism::make<NavItem>(file.filename().string(), prism::Icon::File);
+            const std::weak_ptr<FolderPickerState> weak = state;
+            NavItem* const self = row.get();
+            row->onActivate = [weak, file, self] {
+                if (const std::shared_ptr<FolderPickerState> owner = weak.lock()) {
+                    owner->selectedFile = file;
+                    for (const prism::Ref<NavItem>& other : owner->fileRows) {
+                        other->SetActive(other.get() == self);
+                    }
                 }
+            };
+            if (state->tagProjectFolders && files.size() == 1U) {
+                state->selectedFile = file;
+                row->SetActive(true);
             }
-        };
-        state->fileRows.push_back(row);
-        state->folders->add(row, prism::Slot{0.0F, {}, prism::HAlign::Fill});
+            state->fileRows.push_back(row);
+            state->folders->add(row, prism::Slot{0.0F, {}, prism::HAlign::Fill});
+        }
+    };
+    const auto addFolderRows = [&] {
+        for (const std::filesystem::path& child : children) {
+            const bool hasProject = (state->tagProjectFolders || !pickFiles) && FolderContainsProjectFile(child);
+            const std::string label =
+                hasProject ? (child.filename().string() + "  [Project]") : child.filename().string();
+            auto row = prism::make<NavItem>(label, hasProject ? prism::Icon::FolderOpen : prism::Icon::Folder);
+            const std::weak_ptr<FolderPickerState> weak = state;
+            row->onActivate = [weak, child] {
+                if (const std::shared_ptr<FolderPickerState> owner = weak.lock()) {
+                    ShowFolder(owner, child);
+                }
+            };
+            state->folders->add(row, prism::Slot{0.0F, {}, prism::HAlign::Fill});
+        }
+    };
+    if (state->tagProjectFolders) {
+        addFileRows();
+        addFolderRows();
+    } else {
+        addFolderRows();
+        addFileRows();
     }
     state->folders->relayout();
 }
@@ -428,7 +452,7 @@ void ShowFolder(const std::shared_ptr<FolderPickerState>& state, const std::file
     }
     if (g_hasStorageAccess && g_requestStorageAccess && !g_hasStorageAccess()) {
         state->grantButton = prism::make<prism::Button>("Allow Storage", prism::Icon::Lock, prism::ButtonStyle::Primary);
-        state->grantButton->setTooltip("Grant Android All Files Access to browse Documents & Downloads");
+        state->grantButton->setTooltip("Grant Android All Files Access to see .uvproject files in shared storage");
         state->grantButton->onClick = [weak = std::weak_ptr<FolderPickerState>(state)] {
             if (g_requestStorageAccess) {
                 g_requestStorageAccess();
@@ -438,6 +462,11 @@ void ShowFolder(const std::shared_ptr<FolderPickerState>& state, const std::file
             }
         };
         shortcuts->add(state->grantButton);
+
+        state->storageNotice = prism::make<prism::Label>(
+            "All Files Access is off - Android hides .uvproject files in shared storage. Tap 'Allow Storage' above.",
+            prism::FontRole::Small);
+        state->storageNotice->setColor(&prism::Theme::warning);
 
         // Automatically refresh as soon as the user returns from Android Settings with permission granted.
         if (prism::Application::exists()) {
@@ -451,6 +480,9 @@ void ShowFolder(const std::shared_ptr<FolderPickerState>& state, const std::file
                     owner->permissionTimerId = 0;
                     if (owner->grantButton) {
                         owner->grantButton->setVisible(false);
+                    }
+                    if (owner->storageNotice) {
+                        owner->storageNotice->setVisible(false);
                     }
                     if (!owner->current.empty()) {
                         ShowFolder(owner, owner->current);
@@ -493,6 +525,9 @@ void ShowFolder(const std::shared_ptr<FolderPickerState>& state, const std::file
 #endif
 #endif
     body->add(shortcuts);
+    if (state->storageNotice) {
+        body->add(state->storageNotice);
+    }
 
     // Clickable breadcrumb bar for fast parent navigation.
     state->breadcrumbs = prism::make<prism::WrapBox>(prism::Orientation::Horizontal, 2.0F, 2.0F);
@@ -517,6 +552,20 @@ void ShowFolder(const std::shared_ptr<FolderPickerState>& state, const std::file
     return body;
 }
 
+[[nodiscard]] std::filesystem::path ResolveChosenDirectory(const FolderPickerState& state) {
+    if (state.path) {
+        const std::string typed = state.path->text();
+        if (!typed.empty()) {
+            std::filesystem::path candidate(typed);
+            std::error_code error;
+            if (std::filesystem::exists(candidate, error)) {
+                return candidate.lexically_normal();
+            }
+        }
+    }
+    return state.current;
+}
+
 } // namespace
 
 std::vector<std::filesystem::path> ListPickableFolders(const std::filesystem::path& directory) {
@@ -528,7 +577,8 @@ std::vector<std::filesystem::path> ListPickableFolders(const std::filesystem::pa
         return folders;
     }
     for (const std::filesystem::directory_entry& entry : iterator) {
-        if (IsHiddenName(entry.path().filename().string()) || !entry.is_directory(error)) {
+        std::error_code entryError;
+        if (IsHiddenName(entry.path().filename().string()) || !entry.is_directory(entryError) || entryError) {
             continue;
         }
         folders.push_back(entry.path());
@@ -547,13 +597,21 @@ std::vector<std::filesystem::path> ListPickableFiles(const std::filesystem::path
         return files;
     }
     for (const std::filesystem::directory_entry& entry : iterator) {
-        const std::string name = Lowercase(entry.path().filename().string());
-        if (IsHiddenName(name) || !entry.is_regular_file(error)) {
+        std::error_code entryError;
+        if (!entry.is_regular_file(entryError) || entryError) {
             continue;
         }
+        const std::string name = Lowercase(entry.path().filename().string());
         const bool matches = std::any_of(suffixes.begin(), suffixes.end(), [&name](const std::string& suffix) {
             const std::string wanted = Lowercase(suffix);
-            return name.size() > wanted.size() && name.compare(name.size() - wanted.size(), wanted.size(), wanted) == 0;
+            if (wanted.empty()) {
+                return false;
+            }
+            if (name == wanted && wanted.front() == kHiddenPrefix) {
+                return true;
+            }
+            return !IsHiddenName(name) && name.size() > wanted.size() &&
+                   name.compare(name.size() - wanted.size(), wanted.size(), wanted) == 0;
         });
         if (matches) {
             files.push_back(entry.path());
@@ -598,8 +656,35 @@ void ShowFolderPicker(const std::string& title, const std::filesystem::path& sta
                       {{"Cancel", false, [state] { ReleasePickerState(state); }},
                        {"Choose this folder", true,
                         [state, onPicked = std::move(onPicked)] {
-                            const std::filesystem::path chosen = state->current;
+                            const std::filesystem::path chosen = ResolveChosenDirectory(*state);
                             ReleasePickerState(state);
+                            if (!chosen.empty() && onPicked) {
+                                onPicked(chosen);
+                            }
+                        }}},
+                      ResponsivePickerWidth());
+}
+
+void ShowProjectPicker(const std::string& title, const std::filesystem::path& start,
+                          std::function<void(const std::filesystem::path&)> onPicked) {
+    auto state = std::make_shared<FolderPickerState>();
+    state->fileSuffixes = {".uvproject", ".uveditor"};
+    state->tagProjectFolders = true;
+    const prism::Ref<prism::Box> body = BuildPickerBody(state);
+    body->add(state->problem);
+
+    ShowFolder(state, FirstFolder(start));
+    const auto release = [state] { ReleasePickerState(state); };
+    prism::showDialog(title, body,
+                      {{"Cancel", false, release},
+                       {"Open project", true,
+                        [state, release, onPicked = std::move(onPicked)] {
+                            const std::filesystem::path resolvedDir = ResolveChosenDirectory(*state);
+                            const std::filesystem::path chosen =
+                                (resolvedDir == state->current && state->selectedFile.has_value())
+                                    ? *state->selectedFile
+                                    : resolvedDir;
+                            release();
                             if (!chosen.empty() && onPicked) {
                                 onPicked(chosen);
                             }
@@ -618,6 +703,10 @@ void SetSystemFilePicker(SystemFilePicker picker) {
 void SetStorageAccessProvider(std::function<bool()> hasAccess, std::function<void()> requestAccess) {
     g_hasStorageAccess = std::move(hasAccess);
     g_requestStorageAccess = std::move(requestAccess);
+}
+
+bool HasStorageAccess() {
+    return !g_hasStorageAccess || g_hasStorageAccess();
 }
 
 void ShowFilePicker(const std::string& title, const std::filesystem::path& start, std::vector<std::string> suffixes,

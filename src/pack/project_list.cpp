@@ -155,4 +155,101 @@ bool SaveLauncherSettings(const std::filesystem::path& file, const LauncherSetti
     return true;
 }
 
+bool IsProjectManifestFileName(const std::filesystem::path& path) {
+    const std::string filename = Lower(path.filename().string());
+    if (filename.empty()) {
+        return false;
+    }
+    const std::string ext = Lower(path.extension().string());
+    return ext == Platform::kEditorProjectFileExtension || filename == Platform::kEditorProjectFileExtension;
+}
+
+ProjectFolderLookupResult FindProjectManifestInFolder(const std::filesystem::path& path,
+                                                      const bool storageAccessRestricted) {
+    constexpr std::string_view kLegacyProjectExtension = ".uveditor";
+    if (path.empty()) {
+        return {std::nullopt, {}, false, "Choose a project folder or .uvproject file."};
+    }
+
+    std::error_code statusError;
+    if (std::filesystem::is_regular_file(path, statusError)) {
+        if (IsProjectManifestFileName(path)) {
+            return {path, {path}, false, {}};
+        }
+        const std::string ext = Lower(path.extension().string());
+        if (ext == kLegacyProjectExtension) {
+            std::filesystem::path migrated = path;
+            migrated.replace_extension(Platform::kEditorProjectFileExtension);
+            return {migrated, {migrated}, false, {}};
+        }
+        return {std::nullopt, {}, false,
+                "That file is not a UniVex project (" + std::string(Platform::kEditorProjectFileExtension) + ")."};
+    }
+
+    statusError.clear();
+    if (!std::filesystem::is_directory(path, statusError)) {
+        if (storageAccessRestricted) {
+            return {std::nullopt, {}, true,
+                    "Storage access is required to open that folder. Tap 'Allow Storage' to grant All Files Access."};
+        }
+        return {std::nullopt, {}, statusError.value() != 0,
+                statusError ? "Unable to access that folder: " + statusError.message()
+                            : "That folder does not exist."};
+    }
+
+    std::vector<std::filesystem::path> manifests;
+    std::vector<std::filesystem::path> legacyManifests;
+    std::error_code iterError;
+    std::filesystem::directory_iterator iterator(path, std::filesystem::directory_options::skip_permission_denied,
+                                                 iterError);
+    if (iterError) {
+        return {std::nullopt, {}, true,
+                storageAccessRestricted
+                    ? "Storage access is required to read .uvproject files here. Tap 'Allow Storage' to grant All "
+                      "Files Access."
+                    : "Unable to read that folder: " + iterError.message()};
+    }
+
+    for (const std::filesystem::directory_entry& entry : iterator) {
+        std::error_code entryError;
+        if (!entry.is_regular_file(entryError) || entryError) {
+            continue;
+        }
+        const std::filesystem::path entryPath = entry.path();
+        if (IsProjectManifestFileName(entryPath)) {
+            manifests.push_back(entryPath);
+        } else if (Lower(entryPath.extension().string()) == kLegacyProjectExtension) {
+            legacyManifests.push_back(entryPath);
+        }
+    }
+
+    std::sort(manifests.begin(), manifests.end());
+    if (manifests.size() == 1U) {
+        return {manifests.front(), manifests, false, {}};
+    }
+    if (manifests.size() > 1U) {
+        return {std::nullopt, manifests, false,
+                "That folder has more than one project file; select the .uvproject file directly."};
+    }
+
+    std::sort(legacyManifests.begin(), legacyManifests.end());
+    if (legacyManifests.size() == 1U) {
+        std::filesystem::path migrated = legacyManifests.front();
+        migrated.replace_extension(Platform::kEditorProjectFileExtension);
+        return {migrated, {migrated}, false, {}};
+    }
+    if (legacyManifests.size() > 1U) {
+        return {std::nullopt, legacyManifests, false,
+                "That folder has more than one project file; select one directly."};
+    }
+
+    if (storageAccessRestricted) {
+        return {std::nullopt, {}, true,
+                "Android hides .uvproject files in shared storage when All Files Access is off. Tap 'Allow Storage' "
+                "in the folder picker, then try again."};
+    }
+    return {std::nullopt, {}, false,
+            "That folder has no project file (" + std::string(Platform::kEditorProjectFileExtension) + ")."};
+}
+
 } // namespace UVE::Pack

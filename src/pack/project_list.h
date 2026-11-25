@@ -67,4 +67,21 @@ struct LauncherSettings final {
 [[nodiscard]] LauncherSettings LoadLauncherSettings(const std::filesystem::path& file);
 [[nodiscard]] bool SaveLauncherSettings(const std::filesystem::path& file, const LauncherSettings& settings);
 
+/// Result of resolving a `.uvproject` manifest from a user-selected folder or file path.
+struct ProjectFolderLookupResult final {
+    std::optional<std::filesystem::path> projectFile;
+    std::vector<std::filesystem::path> candidates;
+    bool accessDenied = false;
+    std::string message;
+};
+
+/// True when `path` names a `.uvproject` manifest (case-insensitive, including bare `.uvproject`).
+[[nodiscard]] bool IsProjectManifestFileName(const std::filesystem::path& path);
+
+/// Resolves a `.uvproject` (or legacy `.uveditor`) manifest from `path` (a file or a project
+/// directory). When `storageAccessRestricted` is true and no manifest is visible in a readable
+/// directory, surfaces an actionable All Files Access message instead of reporting the folder empty.
+[[nodiscard]] ProjectFolderLookupResult FindProjectManifestInFolder(
+    const std::filesystem::path& path, bool storageAccessRestricted = false);
+
 } // namespace UVE::Pack
