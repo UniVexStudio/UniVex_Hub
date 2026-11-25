@@ -7,6 +7,7 @@
 #include <chrono>
 #include <charconv>
 #include <cmath>
+#include <cstdlib>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -401,10 +402,10 @@ prism::Ref<prism::Widget> HubWindow::BuildProjectsPage() {
     openRow->add(open);
     auto browse = prism::make<prism::Button>(m_context.compactLayout ? "Folder" : "Open project folder",
                                              prism::Icon::FolderOpen);
-    browse->setTooltip("Browse for a project folder");
+    browse->setTooltip("Browse for a project folder or .uvproject file");
     browse->onClick = [this] {
-        ShowFolderPicker("Open a project folder", m_settings.defaultProjectLocation,
-                            [this](const std::filesystem::path& folder) { OpenProjectFolder(folder); });
+        LauncherUI::ShowProjectPicker("Open a project or folder", m_settings.defaultProjectLocation,
+                                      [this](const std::filesystem::path& target) { OpenProjectFolder(target); });
     };
     openRow->add(browse);
     page->add(openRow);
@@ -732,6 +733,11 @@ void HubWindow::SelectTemplate(const std::size_t index) {
 }
 
 void HubWindow::OpenProject(const std::filesystem::path& projectFile) {
+    std::error_code error;
+    if (!projectFile.empty() && std::filesystem::is_directory(projectFile, error)) {
+        OpenProjectFolder(projectFile);
+        return;
+    }
     const ProjectOpenResult opened = OpenProjectInEngine(
         projectFile, m_engines, m_context.registryFile,
         m_context.registryOverridden ? m_context.registryFile : std::filesystem::path{});
@@ -740,21 +746,23 @@ void HubWindow::OpenProject(const std::filesystem::path& projectFile) {
 }
 
 void HubWindow::OpenProjectFolder(const std::filesystem::path& folder) {
-    std::vector<std::filesystem::path> manifests;
-    std::error_code error;
-    for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(folder, error)) {
-        if (entry.path().extension() == Platform::kEditorProjectFileExtension && entry.is_regular_file(error)) {
-            manifests.push_back(entry.path());
-        }
+    bool storageRestricted = false;
+#if defined(__ANDROID__)
+    if (!LauncherUI::HasStorageAccess()) {
+        const std::string norm = folder.lexically_normal().generic_string();
+        const char* const appExt = std::getenv("UNIVEX_ANDROID_APP_EXT_DOCS");
+        const bool inAppExt = appExt != nullptr && appExt[0] != '\0' && norm.starts_with(appExt);
+        const Platform::ApplicationUserDataDirectoryResult home = Platform::ResolveUserHomeDirectory();
+        const bool inAppPrivate = home.success && norm.starts_with(home.directory.lexically_normal().generic_string());
+        storageRestricted = !inAppExt && !inAppPrivate;
     }
-    if (manifests.size() != 1U) {
-        SetStatus(manifests.empty() ? "That folder has no project file (" +
-                                             std::string(Platform::kEditorProjectFileExtension) + ")."
-                                       : "That folder has more than one project file; open one by its path.",
-                     true);
+#endif
+    const Pack::ProjectFolderLookupResult lookup = Pack::FindProjectManifestInFolder(folder, storageRestricted);
+    if (!lookup.projectFile.has_value()) {
+        SetStatus(lookup.message, true);
         return;
     }
-    OpenProject(manifests.front());
+    OpenProject(*lookup.projectFile);
 }
 
 void HubWindow::CreateProject() {

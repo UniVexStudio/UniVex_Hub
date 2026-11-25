@@ -32,10 +32,20 @@ void SetSystemFilePicker(SystemFilePicker picker);
 /// (Android All Files Access), used by the folder picker to surface a one-tap grant button.
 void SetStorageAccessProvider(std::function<bool()> hasAccess, std::function<void()> requestAccess);
 
+/// True when broad shared-storage access is available (always true on desktop; reflects
+/// Android All Files Access when a storage access provider is registered).
+[[nodiscard]] bool HasStorageAccess();
+
 /// Opens a modal window for choosing a folder, starting in `start` (or the home folder when it is
 /// not a directory). `onPicked` receives the chosen folder; cancelling calls nothing.
 void ShowFolderPicker(const std::string& title, const std::filesystem::path& start,
                          std::function<void(const std::filesystem::path&)> onPicked);
+
+/// Opens a modal window for opening an existing UniVex project: lists subfolders (tagging project
+/// folders with `[Project]`) alongside `.uvproject` / `.uveditor` files directly inside each
+/// folder. `onPicked` receives either the selected `.uvproject` file or the chosen folder.
+void ShowProjectPicker(const std::string& title, const std::filesystem::path& start,
+                          std::function<void(const std::filesystem::path&)> onPicked);
 
 /// Opens a modal window for choosing one file whose name ends with one of `suffixes`, starting in
 /// `start`. Folders are browsed by clicking them; a file is selected by clicking it and chosen with

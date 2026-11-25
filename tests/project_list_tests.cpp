@@ -143,5 +143,63 @@ TEST(ProcessLauncherTest, LaunchesAndReportsMissingPrograms) {
 }
 #endif
 
+TEST(ProjectFolderLookupTest, FindsNormalUppercaseBareAndLegacyManifests) {
+    const std::filesystem::path root = ::UVE::Tests::MakeTestCaseDirectory();
+    const auto touch = [](const std::filesystem::path& file) {
+        std::filesystem::create_directories(file.parent_path());
+        std::ofstream output(file, std::ios::binary | std::ios::trunc);
+        output << "{}\n";
+    };
+
+    const std::filesystem::path normalDir = root / "normal";
+    touch(normalDir / "MyGame.uvproject");
+    const ProjectFolderLookupResult normal = FindProjectManifestInFolder(normalDir);
+    ASSERT_TRUE(normal.projectFile.has_value());
+    EXPECT_EQ(*normal.projectFile, normalDir / "MyGame.uvproject");
+
+    const ProjectFolderLookupResult direct = FindProjectManifestInFolder(normalDir / "MyGame.uvproject");
+    ASSERT_TRUE(direct.projectFile.has_value());
+    EXPECT_EQ(*direct.projectFile, normalDir / "MyGame.uvproject");
+
+    const std::filesystem::path upperDir = root / "upper";
+    touch(upperDir / "MyGame.UVPROJECT");
+    const ProjectFolderLookupResult upper = FindProjectManifestInFolder(upperDir);
+    ASSERT_TRUE(upper.projectFile.has_value());
+    EXPECT_EQ(*upper.projectFile, upperDir / "MyGame.UVPROJECT");
+
+    const std::filesystem::path bareDir = root / "bare";
+    touch(bareDir / ".uvproject");
+    const ProjectFolderLookupResult bare = FindProjectManifestInFolder(bareDir);
+    ASSERT_TRUE(bare.projectFile.has_value());
+    EXPECT_EQ(*bare.projectFile, bareDir / ".uvproject");
+
+    const std::filesystem::path legacyDir = root / "legacy";
+    touch(legacyDir / "OldGame.uveditor");
+    const ProjectFolderLookupResult legacy = FindProjectManifestInFolder(legacyDir);
+    ASSERT_TRUE(legacy.projectFile.has_value());
+    EXPECT_EQ(*legacy.projectFile, legacyDir / "OldGame.uvproject");
+
+    const std::filesystem::path multiDir = root / "multi";
+    touch(multiDir / "A.uvproject");
+    touch(multiDir / "B.uvproject");
+    const ProjectFolderLookupResult multi = FindProjectManifestInFolder(multiDir);
+    EXPECT_FALSE(multi.projectFile.has_value());
+    EXPECT_EQ(multi.candidates.size(), 2U);
+
+    const std::filesystem::path emptyDir = root / "empty";
+    std::filesystem::create_directories(emptyDir);
+    const ProjectFolderLookupResult emptyUnrestricted = FindProjectManifestInFolder(emptyDir, false);
+    EXPECT_FALSE(emptyUnrestricted.projectFile.has_value());
+    EXPECT_FALSE(emptyUnrestricted.accessDenied);
+    EXPECT_NE(emptyUnrestricted.message.find(".uvproject"), std::string::npos);
+
+    const ProjectFolderLookupResult emptyRestricted = FindProjectManifestInFolder(emptyDir, true);
+    EXPECT_FALSE(emptyRestricted.projectFile.has_value());
+    EXPECT_TRUE(emptyRestricted.accessDenied);
+    EXPECT_NE(emptyRestricted.message.find("Allow Storage"), std::string::npos);
+
+    std::filesystem::remove_all(root);
+}
+
 } // namespace
 } // namespace UVE::Pack::Tests

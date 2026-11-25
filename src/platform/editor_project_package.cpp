@@ -139,8 +139,17 @@ using Json = nlohmann::json;
     return extension == ".png" || extension == ".ico" || extension == ".icns";
 }
 
-[[nodiscard]] bool IsPackagePath(const std::filesystem::path& path) noexcept {
-    return path.extension() == kEditorProjectFileExtension && !path.filename().empty();
+[[nodiscard]] bool IsPackagePath(const std::filesystem::path& path) {
+    if (path.filename().empty()) {
+        return false;
+    }
+    if (LowercaseExtension(path) == kEditorProjectFileExtension) {
+        return true;
+    }
+    std::string filename = path.filename().string();
+    std::transform(filename.begin(), filename.end(), filename.begin(),
+                   [](const unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    return filename == kEditorProjectFileExtension;
 }
 
 [[nodiscard]] std::optional<EditorProjectPackage> DecodePackage(const Json& json) {

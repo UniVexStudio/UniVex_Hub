@@ -377,5 +377,20 @@ TEST_F(EditorProjectPackageTest, Load_DefaultsMissingRendererProfileAndRejectsUn
               EditorProjectPackageCode::ParseFailed);
 }
 
+TEST_F(EditorProjectPackageTest, Load_AcceptsCaseInsensitiveAndBareUvprojectFilenames) {
+    const EditorProjectPackage sample = MakePackage();
+    const std::filesystem::path upperPath = packagePath.parent_path() / "Project.UVPROJECT";
+    ASSERT_TRUE(EditorProjectPackageCodec::Save(upperPath, sample).IsAccepted());
+    const EditorProjectPackageLoadResult upperLoad = EditorProjectPackageCodec::Load(upperPath);
+    ASSERT_TRUE(upperLoad.IsAccepted()) << upperLoad.result.message;
+    EXPECT_EQ(upperLoad.package->projectId, sample.projectId);
+
+    const std::filesystem::path barePath = packagePath.parent_path() / ".uvproject";
+    ASSERT_TRUE(EditorProjectPackageCodec::Save(barePath, sample).IsAccepted());
+    const EditorProjectPackageLoadResult bareLoad = EditorProjectPackageCodec::Load(barePath);
+    ASSERT_TRUE(bareLoad.IsAccepted()) << bareLoad.result.message;
+    EXPECT_EQ(bareLoad.package->projectId, sample.projectId);
+}
+
 } // namespace
 } // namespace UVE::Platform::Tests
