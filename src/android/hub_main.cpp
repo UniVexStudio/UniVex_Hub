@@ -54,7 +54,8 @@ enum class HubOutcome { Quit, OpenEditor };
     context.settingsFile = context.registryFile.parent_path() / UVE::Pack::kLauncherSettingsFileName;
     context.enginesRoot = context.registryFile.parent_path() / UVE::Online::kEnginesDirectoryName;
     context.feed = UVE::Online::LoadEngineFeedSource(unpacked / UVE::Online::kEngineFeedFileName);
-    context.compactLayout = true;
+    // Unified PC visual layout on mobile (users can zoom cleanly via Hub Settings presets).
+    context.compactLayout = false;
 
     UVE::LauncherUI::LauncherWindowDesc window;
     window.title = std::string(UVE::Hub::kHubWindowTitle);

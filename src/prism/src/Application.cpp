@@ -603,6 +603,7 @@ void Application::dispatchMouseUp(MouseEvent e) {
   }
   if (auto cw = m_capture.lock()) {
     releaseMouse();
+    for (Widget* w = cw->m_parent; w; w = w->m_parent) w->onPreviewMouseUp(e);
     cw->onMouseUp(e);
   } else {
     Widget* t = hitTestAll(e.pos);

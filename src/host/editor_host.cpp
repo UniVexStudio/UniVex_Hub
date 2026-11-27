@@ -956,25 +956,14 @@ bool EditorHost::Initialize(GLFWwindow* const window, const std::filesystem::pat
 
     {
         prism::Theme& t = prism::themeMutable();
-        if (m_singleSurface) {
-            t.controlH = 20.0F;
-            t.rowH = 19.0F;
-            t.menuBarH = 20.0F;
-            t.toolbarH = 22.0F;
-            t.tabH = 20.0F;
-            t.statusH = 19.0F;
-            t.pad = 5.0F;
-            t.gap = 3.0F;
-        } else {
-            t.controlH = 22.0F;
-            t.rowH = 20.0F;
-            t.menuBarH = 20.0F;
-            t.toolbarH = 24.0F;
-            t.tabH = 22.0F;
-            t.statusH = 20.0F;
-            t.pad = 6.0F;
-            t.gap = 4.0F;
-        }
+        t.controlH = 22.0F;
+        t.rowH = 20.0F;
+        t.menuBarH = 20.0F;
+        t.toolbarH = 24.0F;
+        t.tabH = 22.0F;
+        t.statusH = 20.0F;
+        t.pad = 6.0F;
+        t.gap = 4.0F;
     }
 
     LoadBrandMark(assetDir / kBrandMarkFile);
@@ -1792,8 +1781,8 @@ void EditorHost::OnCursorPos(Window& w, const double x, const double y) {
     // Edge-resize affordance on an undecorated, restored desktop window.
     int edges = 0;
     if (!w.page && glfwGetWindowAttrib(w.window, GLFW_DECORATED) == 0 && glfwGetWindowAttrib(w.window, GLFW_MAXIMIZED) == 0) {
-        const float width = static_cast<float>(w.fbWidth);
-        const float height = static_cast<float>(w.fbHeight);
+        const float width = static_cast<float>(w.uiWidth);
+        const float height = static_cast<float>(w.uiHeight);
         if (w.mouse.x < kResizeBorder) { edges |= 1; }
         if (w.mouse.x >= width - kResizeBorder) { edges |= 2; }
         if (w.mouse.y < kResizeBorder) { edges |= 4; }
@@ -1861,8 +1850,8 @@ void EditorHost::OnMouseButton(Window& w, const int button, const int action, co
             const bool maximized = glfwGetWindowAttrib(w.window, GLFW_MAXIMIZED) != 0;
             int edges = 0;
             if (!maximized) {
-                const float width = static_cast<float>(w.fbWidth);
-                const float height = static_cast<float>(w.fbHeight);
+                const float width = static_cast<float>(w.uiWidth);
+                const float height = static_cast<float>(w.uiHeight);
                 if (w.mouse.x < kResizeBorder) { edges |= 1; }
                 if (w.mouse.x >= width - kResizeBorder) { edges |= 2; }
                 if (w.mouse.y < kResizeBorder) { edges |= 4; }
@@ -1973,8 +1962,8 @@ void EditorHost::UpdateWindowDrag(Window& w) {
     int y = w.dragStartWinY;
     int width = w.dragStartWinW;
     int height = w.dragStartWinH;
-    constexpr int kMinW = 640;
-    constexpr int kMinH = 400;
+    constexpr int kMinW = 420;
+    constexpr int kMinH = 300;
     if ((w.resizeEdges & 1) != 0) { const int nw = std::max(kMinW, width - dx); x += width - nw; width = nw; }
     if ((w.resizeEdges & 2) != 0) { width = std::max(kMinW, width + dx); }
     if ((w.resizeEdges & 4) != 0) { const int nh = std::max(kMinH, height - dy); y += height - nh; height = nh; }

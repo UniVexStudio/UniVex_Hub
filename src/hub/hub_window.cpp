@@ -480,7 +480,9 @@ prism::Ref<prism::Widget> HubWindow::BuildNewProjectPage() {
     details->add(FieldRow("Renderer", m_newProjectRenderer));
     details->add(m_rendererDescription);
     details->add(create, prism::Slot{0.0F, {}, prism::HAlign::Left});
-    body->add(details, prism::Slot{1.0F});
+    auto detailsScroll = prism::make<prism::ScrollView>();
+    detailsScroll->setContent(details);
+    body->add(detailsScroll, prism::Slot{1.0F});
 
     page->add(body, prism::Slot{1.0F});
     return page;
@@ -544,12 +546,16 @@ prism::Ref<prism::Widget> HubWindow::BuildSettingsPage() {
         return page;
     }
 
-    page->add(FieldRow("New projects in", FolderField(m_settingsLocation, "Where new projects go")));
-    page->add(FieldRow("Recent projects", m_settingsRecentLimit));
-    page->add(hint);
-    page->add(zoomRow("Hub zoom", true));
-    page->add(zoomRow("Editor zoom", false));
-    page->add(save, prism::Slot{0.0F, {}, prism::HAlign::Left});
+    auto fields = prism::vbox(sectionSpacing);
+    fields->add(FieldRow("New projects in", FolderField(m_settingsLocation, "Where new projects go")));
+    fields->add(FieldRow("Recent projects", m_settingsRecentLimit));
+    fields->add(hint);
+    fields->add(zoomRow("Hub zoom", true));
+    fields->add(zoomRow("Editor zoom", false));
+    fields->add(save, prism::Slot{0.0F, {}, prism::HAlign::Left});
+    auto scroll = prism::make<prism::ScrollView>();
+    scroll->setContent(fields);
+    page->add(scroll, prism::Slot{1.0F});
 
     return page;
 }
@@ -708,6 +714,7 @@ prism::Ref<prism::Widget> HubWindow::BuildProjectRow(const Pack::ProjectListRow&
             line->add(engineChoice, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
         }
         line->add(favorite, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
+#if !defined(__ANDROID__)
         if (row.status != Pack::ProjectListStatus::Missing) {
             auto reveal = prism::make<prism::Button>("Show in folder", prism::Icon::FolderOpen, prism::ButtonStyle::Flat);
             reveal->onClick = [this, projectFile] {
@@ -719,6 +726,7 @@ prism::Ref<prism::Widget> HubWindow::BuildProjectRow(const Pack::ProjectListRow&
             };
             line->add(reveal, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
         }
+#endif
         line->add(remove, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
         content = line;
     }
