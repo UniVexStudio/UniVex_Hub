@@ -14,6 +14,7 @@
 
 #include "folder_picker.h"
 #include "hub_project_opener.h"
+#include "launcher_window.h"
 #include "hub_setup.h"
 #include "launcher_files.h"
 #include "process_launcher.h"
@@ -218,6 +219,7 @@ private:
 
 HubWindow::HubWindow(HubContext context) : m_context(std::move(context)) {
     m_settings = Pack::LoadLauncherSettings(m_context.settingsFile);
+    LauncherUI::SetLauncherUserScale(m_settings.hubZoom);
 }
 
 HubWindow::~HubWindow() = default;
@@ -478,7 +480,9 @@ prism::Ref<prism::Widget> HubWindow::BuildNewProjectPage() {
     details->add(FieldRow("Renderer", m_newProjectRenderer));
     details->add(m_rendererDescription);
     details->add(create, prism::Slot{0.0F, {}, prism::HAlign::Left});
-    body->add(details, prism::Slot{1.0F});
+    auto detailsScroll = prism::make<prism::ScrollView>();
+    detailsScroll->setContent(details);
+    body->add(detailsScroll, prism::Slot{1.0F});
 
     page->add(body, prism::Slot{1.0F});
     return page;
@@ -500,11 +504,41 @@ prism::Ref<prism::Widget> HubWindow::BuildSettingsPage() {
     auto save = prism::make<prism::Button>("Save", prism::Icon::Save, prism::ButtonStyle::Primary);
     save->onClick = [this] { SaveSettings(); };
 
+    // Zoom presets: the Hub's own zoom applies at once; the editor's is handed to it on launch.
+    constexpr std::array<float, 7> kZoomPresets{0.65F, 0.75F, 0.90F, 1.00F, 1.15F, 1.25F, 1.50F};
+    const auto zoomRow = [this, &kZoomPresets](const char* label, const bool hub) {
+        auto presets = prism::make<prism::Segmented>();
+        int selected = 3;
+        float nearest = 10.0F;
+        const float current = hub ? m_settings.hubZoom : m_settings.editorZoom;
+        for (std::size_t index = 0U; index < kZoomPresets.size(); ++index) {
+            presets->add(std::to_string(static_cast<int>(std::lround(kZoomPresets[index] * 100.0F))) + "%");
+            if (std::abs(kZoomPresets[index] - current) < nearest) {
+                nearest = std::abs(kZoomPresets[index] - current);
+                selected = static_cast<int>(index);
+            }
+        }
+        presets->setSelected(selected);
+        presets->onSelect = [this, hub, kZoomPresets](const int index) {
+            if (index < 0 || index >= static_cast<int>(kZoomPresets.size())) {
+                return;
+            }
+            (hub ? m_settings.hubZoom : m_settings.editorZoom) = kZoomPresets[static_cast<std::size_t>(index)];
+            if (hub) {
+                LauncherUI::SetLauncherUserScale(m_settings.hubZoom);
+            }
+            static_cast<void>(Pack::SaveLauncherSettings(m_context.settingsFile, m_settings));
+        };
+        return FieldRow(label, presets, m_context.compactLayout);
+    };
+
     if (m_context.compactLayout) {
         auto fields = prism::vbox(sectionSpacing);
         fields->add(FieldRow("New projects in", FolderField(m_settingsLocation, "Where new projects go"), true));
         fields->add(FieldRow("Recent projects", m_settingsRecentLimit, true));
         fields->add(hint);
+        fields->add(zoomRow("Hub zoom", true));
+        fields->add(zoomRow("Editor zoom", false));
         fields->add(save, prism::Slot{0.0F, {}, prism::HAlign::Left});
         auto scroll = prism::make<prism::ScrollView>();
         scroll->setContent(fields);
@@ -512,10 +546,16 @@ prism::Ref<prism::Widget> HubWindow::BuildSettingsPage() {
         return page;
     }
 
-    page->add(FieldRow("New projects in", FolderField(m_settingsLocation, "Where new projects go")));
-    page->add(FieldRow("Recent projects", m_settingsRecentLimit));
-    page->add(hint);
-    page->add(save, prism::Slot{0.0F, {}, prism::HAlign::Left});
+    auto fields = prism::vbox(sectionSpacing);
+    fields->add(FieldRow("New projects in", FolderField(m_settingsLocation, "Where new projects go")));
+    fields->add(FieldRow("Recent projects", m_settingsRecentLimit));
+    fields->add(hint);
+    fields->add(zoomRow("Hub zoom", true));
+    fields->add(zoomRow("Editor zoom", false));
+    fields->add(save, prism::Slot{0.0F, {}, prism::HAlign::Left});
+    auto scroll = prism::make<prism::ScrollView>();
+    scroll->setContent(fields);
+    page->add(scroll, prism::Slot{1.0F});
 
     return page;
 }
@@ -674,6 +714,7 @@ prism::Ref<prism::Widget> HubWindow::BuildProjectRow(const Pack::ProjectListRow&
             line->add(engineChoice, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
         }
         line->add(favorite, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
+#if !defined(__ANDROID__)
         if (row.status != Pack::ProjectListStatus::Missing) {
             auto reveal = prism::make<prism::Button>("Show in folder", prism::Icon::FolderOpen, prism::ButtonStyle::Flat);
             reveal->onClick = [this, projectFile] {
@@ -685,6 +726,7 @@ prism::Ref<prism::Widget> HubWindow::BuildProjectRow(const Pack::ProjectListRow&
             };
             line->add(reveal, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
         }
+#endif
         line->add(remove, prism::Slot{0.0F, {}, prism::HAlign::Fill, prism::VAlign::Center});
         content = line;
     }
@@ -740,7 +782,7 @@ void HubWindow::OpenProject(const std::filesystem::path& projectFile) {
     }
     const ProjectOpenResult opened = OpenProjectInEngine(
         projectFile, m_engines, m_context.registryFile,
-        m_context.registryOverridden ? m_context.registryFile : std::filesystem::path{});
+        m_context.registryOverridden ? m_context.registryFile : std::filesystem::path{}, m_settings.editorZoom);
     ReloadRegistry();
     SetStatus(opened.message, !opened.launched);
 }

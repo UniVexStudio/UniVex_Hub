@@ -20,6 +20,7 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -164,10 +165,13 @@ void AppendUtf8(std::string& out, const char32_t cp) {
 
 /// Logical UI scale: 1.0 on desktop (pixel-exact), or the display density scale on single-surface
 /// mobile screens, clamped so the shorter logical edge stays at least 360 layout units wide.
+std::atomic<float> g_userInterfaceScale{1.0F};
+
 [[nodiscard]] float ComputeUiScale(GLFWwindow* const window, const int fbWidth, const int fbHeight,
                                       const bool singleSurface) {
+    const float user = g_userInterfaceScale.load();
     if (!singleSurface || window == nullptr || fbWidth <= 0 || fbHeight <= 0) {
-        return 1.0F;
+        return user;
     }
     float sx = 1.0F;
     float sy = 1.0F;
@@ -175,7 +179,7 @@ void AppendUtf8(std::string& out, const char32_t cp) {
     const float rawScale = std::isfinite(sx) && sx > 0.0F ? sx : 1.0F;
     constexpr float kMinLogicalShortEdge = 500.0F;
     const float maxScale = std::max(1.0F, static_cast<float>(std::min(fbWidth, fbHeight)) / kMinLogicalShortEdge);
-    return std::clamp(rawScale, 1.0F, maxScale);
+    return std::clamp(std::clamp(rawScale, 1.0F, maxScale) * user, 0.4F, 4.0F);
 }
 
 } // namespace
@@ -952,25 +956,14 @@ bool EditorHost::Initialize(GLFWwindow* const window, const std::filesystem::pat
 
     {
         prism::Theme& t = prism::themeMutable();
-        if (m_singleSurface) {
-            t.controlH = 20.0F;
-            t.rowH = 19.0F;
-            t.menuBarH = 20.0F;
-            t.toolbarH = 22.0F;
-            t.tabH = 20.0F;
-            t.statusH = 19.0F;
-            t.pad = 5.0F;
-            t.gap = 3.0F;
-        } else {
-            t.controlH = 22.0F;
-            t.rowH = 20.0F;
-            t.menuBarH = 20.0F;
-            t.toolbarH = 24.0F;
-            t.tabH = 22.0F;
-            t.statusH = 20.0F;
-            t.pad = 6.0F;
-            t.gap = 4.0F;
-        }
+        t.controlH = 22.0F;
+        t.rowH = 20.0F;
+        t.menuBarH = 20.0F;
+        t.toolbarH = 24.0F;
+        t.tabH = 22.0F;
+        t.statusH = 20.0F;
+        t.pad = 6.0F;
+        t.gap = 4.0F;
     }
 
     LoadBrandMark(assetDir / kBrandMarkFile);
@@ -1307,7 +1300,7 @@ void EditorHost::ApplyPageLayout(Window& w) {
     if (!w.page || m_main == nullptr) {
         return;
     }
-    const float scale = std::max(1.0F, m_main->uiScale);
+    const float scale = std::max(0.4F, m_main->uiScale);
     int targetUiW = m_main->uiWidth;
     int targetUiH = m_main->uiHeight;
     if (w.pageFloating) {
@@ -1412,7 +1405,7 @@ EditorViewportInput EditorHost::CaptureViewInput(const int id, const prism::Rect
         return input;
     }
     const Window& w = *found;
-    const float scale = std::max(1.0F, w.uiScale);
+    const float scale = std::max(0.4F, w.uiScale);
     const bool inside = w.mouseInside && w.mouse.x >= rect.x && w.mouse.y >= rect.y && w.mouse.x < rect.x + rect.w &&
                         w.mouse.y < rect.y + rect.h;
     // A floating panel (Details torn off, ...) leaves the viewport usable; a menu or a modal does not.
@@ -1788,8 +1781,8 @@ void EditorHost::OnCursorPos(Window& w, const double x, const double y) {
     // Edge-resize affordance on an undecorated, restored desktop window.
     int edges = 0;
     if (!w.page && glfwGetWindowAttrib(w.window, GLFW_DECORATED) == 0 && glfwGetWindowAttrib(w.window, GLFW_MAXIMIZED) == 0) {
-        const float width = static_cast<float>(w.fbWidth);
-        const float height = static_cast<float>(w.fbHeight);
+        const float width = static_cast<float>(w.uiWidth);
+        const float height = static_cast<float>(w.uiHeight);
         if (w.mouse.x < kResizeBorder) { edges |= 1; }
         if (w.mouse.x >= width - kResizeBorder) { edges |= 2; }
         if (w.mouse.y < kResizeBorder) { edges |= 4; }
@@ -1857,8 +1850,8 @@ void EditorHost::OnMouseButton(Window& w, const int button, const int action, co
             const bool maximized = glfwGetWindowAttrib(w.window, GLFW_MAXIMIZED) != 0;
             int edges = 0;
             if (!maximized) {
-                const float width = static_cast<float>(w.fbWidth);
-                const float height = static_cast<float>(w.fbHeight);
+                const float width = static_cast<float>(w.uiWidth);
+                const float height = static_cast<float>(w.uiHeight);
                 if (w.mouse.x < kResizeBorder) { edges |= 1; }
                 if (w.mouse.x >= width - kResizeBorder) { edges |= 2; }
                 if (w.mouse.y < kResizeBorder) { edges |= 4; }
@@ -1969,8 +1962,8 @@ void EditorHost::UpdateWindowDrag(Window& w) {
     int y = w.dragStartWinY;
     int width = w.dragStartWinW;
     int height = w.dragStartWinH;
-    constexpr int kMinW = 640;
-    constexpr int kMinH = 400;
+    constexpr int kMinW = 420;
+    constexpr int kMinH = 300;
     if ((w.resizeEdges & 1) != 0) { const int nw = std::max(kMinW, width - dx); x += width - nw; width = nw; }
     if ((w.resizeEdges & 2) != 0) { width = std::max(kMinW, width + dx); }
     if ((w.resizeEdges & 4) != 0) { const int nh = std::max(kMinH, height - dy); y += height - nh; height = nh; }
@@ -2034,6 +2027,10 @@ bool EditorHost::IsAnyWindowFocused() const {
         }
     }
     return false;
+}
+
+void SetUserInterfaceScale(const float scale) {
+    g_userInterfaceScale.store(std::isfinite(scale) ? std::clamp(scale, 0.4F, 4.0F) : 1.0F);
 }
 
 } // namespace UVE::Editor

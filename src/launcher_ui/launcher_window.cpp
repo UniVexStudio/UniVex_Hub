@@ -29,6 +29,10 @@ void RequestLauncherClose() {
     }
 }
 
+void SetLauncherUserScale(const float scale) {
+    Editor::SetUserInterfaceScale(scale);
+}
+
 int RunLauncherWindow(const LauncherWindowDesc& desc,
                          const std::function<prism::Ref<prism::Widget>()>& buildRoot,
                          const std::function<void()>& tick) {

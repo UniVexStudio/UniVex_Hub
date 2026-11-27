@@ -26,7 +26,8 @@ std::optional<Platform::ProcessLaunchDesc> TakePendingEditorLaunch() {
 ProjectOpenResult OpenProjectInEngine(const std::filesystem::path& projectFile,
                                             const std::vector<Online::InstalledEngine>& engines,
                                             const std::filesystem::path& registryFile,
-                                            const std::filesystem::path& registryOverride) {
+                                            const std::filesystem::path& registryOverride,
+                                            const float editorZoom) {
     if (projectFile.empty()) {
         return {false, "Enter the path of a project file to open."};
     }
@@ -60,7 +61,8 @@ ProjectOpenResult OpenProjectInEngine(const std::filesystem::path& projectFile,
     }
     Platform::ProcessLaunchDesc launch{
         engine->install.editorExecutable,
-        Pack::MakeEditorLaunchArguments(Pack::ProjectRegistry::NormalizeProjectFile(projectFile), registryOverride),
+        Pack::MakeEditorLaunchArguments(Pack::ProjectRegistry::NormalizeProjectFile(projectFile), registryOverride,
+                                  editorZoom),
         projectFile.parent_path()};
 #if defined(__ANDROID__)
     g_pendingEditorLaunch = std::move(launch);

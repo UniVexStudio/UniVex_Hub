@@ -22,6 +22,7 @@ inline constexpr std::string_view kEditorAndroidEntryPoint = "UveEditorRun";
 /// Editor options a launcher passes; they match the editor's own command line.
 inline constexpr std::string_view kEditorProjectOption = "--project";
 inline constexpr std::string_view kEditorProjectRegistryOption = "--project-registry";
+inline constexpr std::string_view kEditorUiScaleOption = "--ui-scale";
 
 /// One installed engine: where its editor and shipped templates are, and which version it is.
 /// Today a launcher uses the engine installed beside it; a version manager can supply others.
@@ -45,8 +46,9 @@ struct EngineInstallResult final {
                                                              const Core::Version& version);
 
 /// The editor command line that opens `projectFile`, recording it in `registryFile` when one is
-/// given instead of the user's own registry.
+/// given instead of the user's own registry. A `uiScale` above zero is passed as --ui-scale.
 [[nodiscard]] std::vector<std::string> MakeEditorLaunchArguments(const std::filesystem::path& projectFile,
-                                                                    const std::filesystem::path& registryFile = {});
+                                                                    const std::filesystem::path& registryFile = {},
+                                                                    float uiScale = 0.0F);
 
 } // namespace UVE::Pack

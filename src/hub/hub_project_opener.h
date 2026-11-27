@@ -25,7 +25,8 @@ struct ProjectOpenResult final {
 [[nodiscard]] ProjectOpenResult OpenProjectInEngine(const std::filesystem::path& projectFile,
                                                           const std::vector<Online::InstalledEngine>& engines,
                                                           const std::filesystem::path& registryFile,
-                                                          const std::filesystem::path& registryOverride);
+                                                          const std::filesystem::path& registryOverride,
+                                                          float editorZoom = 0.0F);
 
 /// Android runs no second program: opening a project there closes the Hub's window and leaves the
 /// editor to start here, which the app (hub_main.cpp) takes once the Hub's loop has ended and runs
