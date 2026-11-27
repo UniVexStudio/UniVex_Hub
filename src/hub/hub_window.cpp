@@ -20,6 +20,7 @@
 #include "process_launcher.h"
 #include "application_runtime.h"
 #include "project_compatibility.h"
+#include "editor_project_package.h"
 #include "prism/Icons.h"
 #include "prism/Theme.h"
 
@@ -585,6 +586,28 @@ void HubWindow::ReloadRegistry() {
     const Pack::ProjectRegistryResult loaded = m_registry.Load(m_context.registryFile);
     if (!loaded.IsApplied()) {
         SetStatus(loaded.message, true);
+    } else {
+        // Sync each existing project's manifest version/name so Hub never shows a stale Upgrade badge.
+        bool syncedAny = false;
+        const std::vector<Pack::ProjectRegistryEntry> snapshot = m_registry.Entries();
+        for (const Pack::ProjectRegistryEntry& entry : snapshot) {
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(entry.projectFile, ec)) {
+                continue;
+            }
+            const Platform::EditorProjectPackageLoadResult manifest =
+                Platform::EditorProjectPackageCodec::Load(entry.projectFile);
+            if (manifest.IsAccepted() && manifest.package.has_value() &&
+                (manifest.package->engineVersion != entry.engineVersion ||
+                 manifest.package->displayName != entry.displayName)) {
+                m_registry.RecordOpened(entry.projectFile, manifest.package->displayName,
+                                        manifest.package->engineVersion, entry.lastOpenedUnixSeconds);
+                syncedAny = true;
+            }
+        }
+        if (syncedAny) {
+            static_cast<void>(m_registry.Save(m_context.registryFile));
+        }
     }
     m_settingsRecentLimit->setText(std::to_string(m_registry.RecentLimit()));
     RefreshProjectList();
