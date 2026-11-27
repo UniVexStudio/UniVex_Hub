@@ -44,6 +44,7 @@ void DispatchAndroidGlfwPointer(AndroidPointerPhase phase, float x, float y);
 void DispatchAndroidGlfwCursor(float x, float y);
 /// A mouse button (GLFW_MOUSE_BUTTON_*) pressed or released at (x, y): what touch gestures stand for.
 void DispatchAndroidGlfwMouseButton(int button, bool down, float x, float y);
+void DispatchAndroidGlfwMouseButtonRelease(int button);
 /// A scroll of the mouse wheel by `dy` notches (a pinch), and `dx` sideways (a mouse's horizontal wheel).
 void DispatchAndroidGlfwScroll(float dy, float dx = 0.0F);
 /// Text the soft keyboard typed (UTF-32 code point).
