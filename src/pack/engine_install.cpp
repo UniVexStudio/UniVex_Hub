@@ -2,6 +2,8 @@
 
 #include "engine_install.h"
 
+#include <cmath>
+
 #include <system_error>
 
 #include "process_launcher.h"
@@ -30,11 +32,16 @@ EngineInstallResult ResolveEngineInstall(const std::filesystem::path& installRoo
 }
 
 std::vector<std::string> MakeEditorLaunchArguments(const std::filesystem::path& projectFile,
-                                                      const std::filesystem::path& registryFile) {
+                                                      const std::filesystem::path& registryFile,
+                                                      const float uiScale) {
     std::vector<std::string> arguments{std::string(kEditorProjectOption), projectFile.string()};
     if (!registryFile.empty()) {
         arguments.emplace_back(kEditorProjectRegistryOption);
         arguments.push_back(registryFile.string());
+    }
+    if (uiScale > 0.0F && std::isfinite(uiScale)) {
+        arguments.emplace_back(kEditorUiScaleOption);
+        arguments.push_back(std::to_string(uiScale));
     }
     return arguments;
 }

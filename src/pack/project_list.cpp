@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <system_error>
@@ -89,6 +90,13 @@ ProjectListStatus ProjectListStatusFor(const Platform::EditorProjectVersion& pro
     return StatusFor(EvaluateProjectCompatibility(projectVersion, engineVersion).verdict);
 }
 
+float ClampInterfaceZoom(const float zoom) {
+    if (!std::isfinite(zoom)) {
+        return 1.0F;
+    }
+    return std::clamp(zoom, kMinimumInterfaceZoom, kMaximumInterfaceZoom);
+}
+
 LauncherSettings LoadLauncherSettings(const std::filesystem::path& file) {
     LauncherSettings settings;
     const Platform::ApplicationUserDataDirectoryResult documents = Platform::ResolveUserDocumentsDirectory();
@@ -108,6 +116,8 @@ LauncherSettings LoadLauncherSettings(const std::filesystem::path& file) {
         json.value("schemaVersion", 0U) != kCurrentLauncherSettingsSchemaVersion) {
         return settings;
     }
+    settings.hubZoom = ClampInterfaceZoom(json.value("hubZoom", 1.0F));
+    settings.editorZoom = ClampInterfaceZoom(json.value("editorZoom", 1.0F));
     const std::string location = json.value("defaultProjectLocation", std::string{});
     if (!location.empty() && std::filesystem::path(location).is_absolute()) {
 #if defined(__ANDROID__)
@@ -130,7 +140,9 @@ LauncherSettings LoadLauncherSettings(const std::filesystem::path& file) {
 bool SaveLauncherSettings(const std::filesystem::path& file, const LauncherSettings& settings) {
     const Json json{{"format", kLauncherSettingsFormat},
                        {"schemaVersion", kCurrentLauncherSettingsSchemaVersion},
-                       {"defaultProjectLocation", settings.defaultProjectLocation.generic_string()}};
+                       {"defaultProjectLocation", settings.defaultProjectLocation.generic_string()},
+                       {"hubZoom", ClampInterfaceZoom(settings.hubZoom)},
+                       {"editorZoom", ClampInterfaceZoom(settings.editorZoom)}};
     std::error_code error;
     if (file.has_parent_path()) {
         std::filesystem::create_directories(file.parent_path(), error);

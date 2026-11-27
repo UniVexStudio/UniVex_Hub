@@ -52,4 +52,7 @@ struct LauncherWindowDesc final {
 
 void RequestLauncherClose();
 
+/// Zooms the launcher interface live (1.0 = 100%).
+void SetLauncherUserScale(float scale);
+
 } // namespace UVE::LauncherUI

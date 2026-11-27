@@ -100,6 +100,22 @@ TEST(LauncherSettingsTest, RoundTripsAndFallsBackToDefaults) {
     std::filesystem::remove_all(root);
 }
 
+TEST(LauncherSettingsTest, ZoomRoundTripsAndIsClamped) {
+    const std::filesystem::path root = ::UVE::Tests::MakeTestCaseDirectory("zoom");
+    const std::filesystem::path file = root / "settings.json";
+    LauncherSettings settings;
+    settings.defaultProjectLocation = root / "Games";
+    settings.hubZoom = 1.25F;
+    settings.editorZoom = 9.0F;
+    ASSERT_TRUE(SaveLauncherSettings(file, settings));
+    const LauncherSettings loaded = LoadLauncherSettings(file);
+    EXPECT_FLOAT_EQ(loaded.hubZoom, 1.25F);
+    EXPECT_FLOAT_EQ(loaded.editorZoom, kMaximumInterfaceZoom);
+    EXPECT_FLOAT_EQ(LoadLauncherSettings(root / "missing.json").hubZoom, 1.0F);
+    EXPECT_EQ(MakeEditorLaunchArguments("a.uvproject", {}, 0.75F).back(), "0.750000");
+    std::filesystem::remove_all(root);
+}
+
 TEST(EngineInstallTest, FindsEditorBesideTheLauncher) {
     const std::filesystem::path root = ::UVE::Tests::MakeTestCaseDirectory("install");
     const Core::Version version{0U, 1U, 0U, 1U};

@@ -60,7 +60,15 @@ inline constexpr std::string_view kDefaultProjectsDirectoryName = "UniVex Projec
 
 struct LauncherSettings final {
     std::filesystem::path defaultProjectLocation;
+    /// Interface zoom of the Hub itself and of the editors it opens (1.0 = 100%).
+    float hubZoom = 1.0F;
+    float editorZoom = 1.0F;
 };
+
+/// The zoom a setting may take; anything else (including NaN) is brought into range or reset.
+inline constexpr float kMinimumInterfaceZoom = 0.5F;
+inline constexpr float kMaximumInterfaceZoom = 2.0F;
+[[nodiscard]] float ClampInterfaceZoom(float zoom);
 
 /// Reads `file`; a missing or unreadable file yields the defaults, with `defaultProjectLocation`
 /// under the user's home directory.
